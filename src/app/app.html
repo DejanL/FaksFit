@@ -1,0 +1,346 @@
+<header class="hero">
+  <nav class="nav" aria-label="Glavna navigacija">
+    <a class="brand" href="./" aria-label="FaksFit domov">
+      <span class="brand-mark">F</span>
+      <span>FaksFit</span>
+    </a>
+    <span class="source-pill">Podatki NAKVIS</span>
+  </nav>
+
+  <div class="hero-content">
+    <p class="eyebrow">Poišči svojo študijsko pot</p>
+    <h1>Vsi slovenski študijski programi na enem mestu.</h1>
+    <p class="intro">Išči med študijskimi programi po imenu, zavodu, učitelju, predmetu, strokovnem naslovu ali eVŠ kodi.</p>
+
+    <div class="search-box">
+      <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m21 21-4.35-4.35m2.35-5.65a8 8 0 1 1-16 0 8 8 0 0 1 16 0Z"/></svg>
+      <input
+        type="search"
+        placeholder="Npr. računalništvo, Novak, matematika, UL FRI …"
+        aria-label="Iskalni niz"
+        autocomplete="off"
+        [value]="query()"
+        (input)="setQuery($event)"
+      >
+      @if (query()) {
+        <button class="clear-button" type="button" aria-label="Počisti iskanje" (click)="clearSearch()">×</button>
+      }
+    </div>
+
+    @if (registry(); as data) {
+      <div class="stats" aria-label="Obseg podatkov">
+        <span><strong>{{ data.metadata.counts.valid_study_programmes }}</strong> veljavnih programov</span>
+        <span><strong>{{ data.metadata.counts.valid_institutions }}</strong> veljavnih zavodov</span>
+        @if (performerSearchRegistry(); as performers) {
+          <span><strong>{{ performers.metadata.teacher_records }}</strong> zapisov učiteljev</span>
+        } @else if (performerSearchLoading()) {
+          <span aria-live="polite">Nalaganje učiteljev in predmetov …</span>
+        } @else if (performerSearchError()) {
+          <span>Iskanje po učiteljih in predmetih trenutno ni na voljo</span>
+        }
+      </div>
+    }
+  </div>
+</header>
+
+<main>
+  <section class="controls" aria-label="Filtri iskanja">
+    <label>
+      <span>Stopnja programa</span>
+      <select [value]="cycle()" (change)="setCycle($event)">
+        <option value="all">Vse stopnje</option>
+        <option value="I.">Prva stopnja</option>
+        <option value="II.">Druga stopnja</option>
+        <option value="III.">Tretja stopnja</option>
+        <option value="0.">Brez nove stopnje</option>
+      </select>
+    </label>
+
+    <label>
+      <span>Zavod</span>
+      <select [value]="institutionId()" (change)="setInstitution($event)">
+        <option value="all">Vsi zavodi</option>
+        @for (institution of institutionOptions(); track institution.id) {
+          <option [value]="institution.id">{{ institution.name }}</option>
+        }
+      </select>
+    </label>
+
+    @if (memberInstitutionOptions().length > 0) {
+      <label>
+        <span>Fakulteta / članica</span>
+        <select [value]="memberInstitutionId()" (change)="setMemberInstitution($event)">
+          <option value="all">Vse fakultete in članice</option>
+          @for (institution of memberInstitutionOptions(); track institution.id) {
+            <option [value]="institution.id">{{ institution.name }}</option>
+          }
+        </select>
+      </label>
+    }
+
+    <label class="checkbox-label">
+      <input type="checkbox" [checked]="includeInvalid()" (change)="setIncludeInvalid($event)">
+      <span>Vključi neveljavne zapise</span>
+    </label>
+  </section>
+
+  @if (loading()) {
+    <section class="state" aria-live="polite">
+      <span class="spinner"></span>
+      <p>Nalaganje podatkov …</p>
+    </section>
+  } @else if (error()) {
+    <section class="state error" role="alert">
+      <h2>Podatkov ni bilo mogoče naložiti.</h2>
+      <p>Preveri, ali je datoteka na voljo, in osveži stran.</p>
+    </section>
+  } @else if (!hasSearchCriteria()) {
+    <section class="state empty">
+      <div class="empty-icon">⌕</div>
+      <h2>Začni z iskalnim izrazom ali filtrom</h2>
+      <p>Vnesi ime področja, fakultete, programa ali eVŠ kodo oziroma izberi enega od filtrov.</p>
+      <div class="suggestions" aria-label="Predlogi iskanja">
+        @for (suggestion of ['informatika', 'medicina', 'pedagoška']; track suggestion) {
+          <button type="button" (click)="query.set(suggestion)">{{ suggestion }}</button>
+        }
+      </div>
+    </section>
+  } @else {
+    <section class="results" aria-live="polite">
+      <div class="results-heading">
+        <div>
+          <p class="eyebrow">Rezultati</p>
+          @if (query().trim()) {
+            <h2>{{ results().length }} zadetkov za »{{ query() }}«</h2>
+          } @else {
+            <h2>{{ results().length }} zadetkov z izbranimi filtri</h2>
+          }
+        </div>
+        @if (remainingResultCount() > 0) {
+          <p>Prikazanih {{ visibleResults().length }} od {{ results().length }}.</p>
+        }
+      </div>
+
+      @if (results().length === 0) {
+        <div class="no-results">
+          <h3>Ni ujemanj</h3>
+          <p>Poskusi s krajšim izrazom ali spremeni filtre.</p>
+        </div>
+      } @else {
+        <div class="result-list">
+          @for (result of visibleResults(); track result.item.id) {
+              <article class="result-card programme-card">
+                <div class="result-content">
+                  <div class="badges">
+                    <span class="badge primary">{{ result.item.type.short_name || result.item.type.name }}</span>
+                    <span class="badge">{{ result.item.cycle.name }}</span>
+                    @if (!result.item.valid) { <span class="badge invalid">Neveljaven</span> }
+                  </div>
+                  <h3>
+                    <a
+                      class="result-title-link"
+                      [href]="programmeUrl(result)"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >{{ result.item.name }} <span class="external-icon" aria-hidden="true">↗</span></a>
+                  </h3>
+                  <p class="institution-name">
+                    @if (result.institution?.website) {
+                      <a
+                        class="institution-link"
+                        [href]="result.institution.website"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >{{ result.institution.name }}</a>
+                    } @else {
+                      {{ result.institution?.name || 'Zavod ni naveden' }}
+                    }
+                    @if (result.university && result.university.id !== result.institution?.id) {
+                      <span class="institution-separator" aria-hidden="true">·</span>
+                      @if (result.university.website) {
+                        <a
+                          class="institution-link"
+                          [href]="result.university.website"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >{{ result.university.name }}</a>
+                      } @else {
+                        {{ result.university.name }}
+                      }
+                    }
+                  </p>
+                  @if (result.match; as match) {
+                    @if (match.performers.length > 0) {
+                      <div class="performer-matches" aria-label="Ujemanja med učitelji in predmeti">
+                        @for (performer of match.performers; track performer.teacherName + '-' + (performer.courseName || '')) {
+                          <button
+                            class="performer-match"
+                            type="button"
+                            (click)="showPerformerMatch(result.item.id, performer)"
+                          >
+                            <span><strong>Učitelj:</strong> {{ performer.teacherName }}</span>
+                            @if (performer.courseName) {
+                              <span><strong>Predmet:</strong> {{ performer.courseName }}</span>
+                            }
+                          </button>
+                        }
+                        @if (match.fuzzy) {
+                          <span class="fuzzy-note">Vključeno približno ujemanje</span>
+                        }
+                      </div>
+                    } @else {
+                      <p class="match-reason">{{ searchMatchLabel(result) }}</p>
+                    }
+                  }
+                  <dl class="details">
+                    @if (result.item.duration_years) {
+                      <div><dt>Trajanje</dt><dd>{{ durationLabel(result.item.duration_years) }}</dd></div>
+                    }
+                    @if (result.item.professional_title.abbreviated) {
+                      <div><dt>Strokovni naslov</dt><dd>{{ result.item.professional_title.abbreviated }}</dd></div>
+                    }
+                    @if (result.item.evs_code) {
+                      <div><dt>eVŠ koda</dt><dd>{{ result.item.evs_code }}</dd></div>
+                    }
+                  </dl>
+                  <div class="result-links" aria-label="Povezave za študijski program">
+                    <a
+                      class="result-link primary-link"
+                      [href]="programmeUrl(result)"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >Podrobnosti programa <span aria-hidden="true">↗</span></a>
+                    @if (result.institution?.website) {
+                      <a
+                        class="result-link"
+                        [href]="result.institution.website"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >Stran {{ result.institution.legal_form.toLocaleLowerCase('sl') || 'zavoda' }} <span aria-hidden="true">↗</span></a>
+                    }
+                    @if (result.university?.website && result.university.id !== result.institution?.id) {
+                      <a
+                        class="result-link"
+                        [href]="result.university.website"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >Stran univerze <span aria-hidden="true">↗</span></a>
+                    }
+                    <button
+                      class="result-link teacher-toggle"
+                      type="button"
+                      [attr.aria-expanded]="expandedProgrammeId() === result.item.id"
+                      [attr.aria-controls]="'programme-teachers-' + result.item.id"
+                      (click)="toggleTeacherDetails(result.item.id)"
+                    >
+                      {{ expandedProgrammeId() === result.item.id ? 'Skrij učitelje in predmete' : 'Učitelji in predmeti' }}
+                      <span class="toggle-icon" aria-hidden="true">{{ expandedProgrammeId() === result.item.id ? '−' : '+' }}</span>
+                    </button>
+                  </div>
+
+                  @if (expandedProgrammeId() === result.item.id) {
+                    <section
+                      class="teacher-panel"
+                      [id]="'programme-teachers-' + result.item.id"
+                      aria-live="polite"
+                    >
+                      @if (teachersLoading()) {
+                        <div class="teacher-panel-state">
+                          <span class="spinner teacher-spinner" aria-hidden="true"></span>
+                          <p>Nalaganje učiteljev in predmetov …</p>
+                        </div>
+                      } @else if (teachersError()) {
+                        <div class="teacher-panel-state teacher-panel-error" role="alert">
+                          <p>Podatkov o učiteljih ni bilo mogoče naložiti.</p>
+                          <button type="button" (click)="retryTeachersLoad()">Poskusi znova</button>
+                        </div>
+                      } @else if (activeTeacherRecord(); as teacherRecord) {
+                        @if (!teacherRecord.available) {
+                          <div class="teacher-panel-state">
+                            <p>NAKVIS za ta program nima objavljenega seznama učiteljev.</p>
+                          </div>
+                        } @else {
+                          <div class="teacher-panel-heading">
+                            <div>
+                              <p class="eyebrow">Izvajalci programa</p>
+                              <h4>{{ teacherRecord.teachers.length }} zapisov učiteljev · {{ activeCourseAssignmentCount() }} predmetnih povezav</h4>
+                            </div>
+                          </div>
+
+                          <label class="teacher-search">
+                            <span>Išči po učitelju ali predmetu</span>
+                            <input
+                              type="search"
+                              placeholder="Npr. Novak ali Matematika"
+                              autocomplete="off"
+                              [value]="teacherQuery()"
+                              (input)="setTeacherQuery($event)"
+                            >
+                          </label>
+
+                          @if (filteredTeachers().length === 0) {
+                            <div class="teacher-panel-state compact-state">
+                              <p>Med učitelji in predmeti ni ujemanj.</p>
+                            </div>
+                          } @else {
+                            <div class="teacher-list">
+                              @for (teacher of visibleTeachers(); track teacherIdentity(teacher) + '-' + $index) {
+                                <article class="teacher-item">
+                                  <div class="teacher-heading">
+                                    <h5>{{ teacher.name }}</h5>
+                                    <div class="teacher-identifiers">
+                                      @if (teacher.researcher_code) {
+                                        <span>Šifra raziskovalca {{ teacher.researcher_code }}</span>
+                                      }
+                                      @if (teacher.sicris_internal_id) {
+                                        <a
+                                          [href]="'https://cris.cobiss.net/ecris/si/sl/researcher/' + teacher.sicris_internal_id"
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                        >SICRIS <span aria-hidden="true">↗</span></a>
+                                      }
+                                    </div>
+                                  </div>
+                                  @if (teacher.courses.length > 0) {
+                                    <ul class="course-list" aria-label="Predmeti">
+                                      @for (course of teacher.courses; track (course.code || course.name) + '-' + $index) {
+                                        <li>{{ course.name }}</li>
+                                      }
+                                    </ul>
+                                  } @else {
+                                    <p class="no-courses">Predmeti niso navedeni.</p>
+                                  }
+                                </article>
+                              }
+                            </div>
+
+                            @if (remainingTeacherCount() > 0) {
+                              <button class="show-more-teachers" type="button" (click)="showMoreTeachers()">
+                                Prikaži še {{ remainingTeacherCount() > teacherPageSize ? teacherPageSize : remainingTeacherCount() }}
+                              </button>
+                            }
+                          }
+                        }
+                      }
+                    </section>
+                  }
+                </div>
+              </article>
+          }
+        </div>
+        @if (remainingResultCount() > 0) {
+          <button class="show-more-results" type="button" (click)="showMoreResults()">
+            Prikaži še {{ remainingResultCount() > resultLimit ? resultLimit : remainingResultCount() }}
+          </button>
+        }
+      }
+    </section>
+  }
+</main>
+
+<footer>
+  <p>Vir: javne evidence NAKVIS · Podatki pod licenco CC BY 4.0</p>
+  @if (registry(); as data) {
+    <p>Posodobljeno {{ dateLabel(data.metadata.generated_at) }}</p>
+  }
+</footer>
