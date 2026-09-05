@@ -19,6 +19,16 @@ Za produkcijsko gradnjo uporabi:
 npm run build
 ```
 
+Vsebinske teste priporočilnega sistema za računalništvo, pravo, medicino,
+arhitekturo in ekonomijo zaženeš z:
+
+```bash
+npm test
+```
+
+Natančni odgovori in pričakovanja za ročni preizkus so opisani v
+[`docs/testni-profili-priporocil.md`](docs/testni-profili-priporocil.md).
+
 Za lokalni preizkus različice z GitHub Pages podpotjo uporabi:
 
 ```bash
