@@ -8,7 +8,7 @@ import type {
   StudyProgramme,
 } from './models';
 
-type MatchKind = 'exact' | 'prefix' | 'fuzzy';
+export type MatchKind = 'exact' | 'prefix' | 'fuzzy';
 
 interface SearchField {
   label: string;
@@ -281,7 +281,12 @@ function bestTermMatch(queryToken: string, fields: SearchField[]): TermMatch | n
 
   for (const searchField of fields) {
     for (const candidate of searchField.tokens) {
-      const kind = tokenMatchKind(queryToken, candidate, searchField);
+      const kind = tokenMatchKind(
+        queryToken,
+        candidate,
+        searchField.allowFuzzy,
+        searchField.maximumFuzzyDistance,
+      );
       if (!kind) continue;
 
       const score = searchField.weight * matchMultiplier(kind, queryToken, candidate);
@@ -358,16 +363,17 @@ function matchKindPriority(kind: MatchKind): number {
   return 1;
 }
 
-function tokenMatchKind(
+export function tokenMatchKind(
   queryToken: string,
   candidate: string,
-  searchField: SearchField,
+  allowFuzzy = true,
+  maximumFuzzyDistance?: number,
 ): MatchKind | null {
   if (candidate === queryToken) return 'exact';
   if (queryToken.length >= 3 && candidate.startsWith(queryToken)) return 'prefix';
-  if (!searchField.allowFuzzy || queryToken.length < 4) return null;
+  if (!allowFuzzy || queryToken.length < 4) return null;
 
-  const maximumDistance = searchField.maximumFuzzyDistance
+  const maximumDistance = maximumFuzzyDistance
     ?? (queryToken.length <= 7 ? 1 : 2);
   if (Math.abs(queryToken.length - candidate.length) > maximumDistance) return null;
 

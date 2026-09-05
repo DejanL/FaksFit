@@ -90,7 +90,11 @@ export class App {
   readonly advisorRecommendations = computed(() => {
     const registry = this.registry();
     return registry && this.advisorFinished()
-      ? recommendStudyProgrammes(registry, this.advisorAnswers())
+      ? recommendStudyProgrammes(
+        registry,
+        this.advisorAnswers(),
+        this.performerSearchRegistry(),
+      )
       : [];
   });
 

@@ -206,6 +206,12 @@
                         <li>{{ reason }}</li>
                       }
                     </ul>
+                    @if (recommendation.matchingCourses.length > 0) {
+                      <p class="advisor-course-evidence">
+                        <strong>Ujemajoči predmeti:</strong>
+                        {{ recommendation.matchingCourses.join(', ') }}
+                      </p>
+                    }
                     <div class="advisor-recommendation-actions">
                       <a
                         [href]="programmeUrl(recommendation.result)"

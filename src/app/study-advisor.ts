@@ -1,5 +1,12 @@
-import type { Institution, Registry, SearchResult, StudyProgramme } from './models';
-import { normalizeSearchText } from './programme-search';
+import type {
+  Institution,
+  ProgrammePerformerSearchRegistry,
+  ProgrammePerformerSearchTeacher,
+  Registry,
+  SearchResult,
+  StudyProgramme,
+} from './models';
+import { normalizeSearchText, tokenMatchKind } from './programme-search';
 
 type AdvisorTrait =
   | 'technology'
@@ -40,11 +47,23 @@ export interface AdvisorRecommendation {
   matchPercent: number;
   areas: string[];
   reasons: string[];
+  matchingCourses: string[];
 }
 
 interface ProgrammeProfile {
   traits: TraitScores;
   areas: string[];
+}
+
+interface CourseEvidence {
+  name: string;
+  traits: TraitScores;
+}
+
+type CourseTokenIndex = Map<string, string[]>;
+
+interface CourseProfile extends ProgrammeProfile {
+  evidence: CourseEvidence[];
 }
 
 interface AreaRule {
@@ -55,6 +74,11 @@ interface AreaRule {
 
 const DEFAULT_RECOMMENDATION_LIMIT = 12;
 const MAX_RECOMMENDATIONS_PER_INSTITUTION = 3;
+const COURSE_PROFILE_WEIGHT = 0.3;
+const courseProfileCache = new WeakMap<
+  ProgrammePerformerSearchRegistry,
+  Map<string, CourseProfile>
+>();
 
 const reasonByTrait: Record<AdvisorTrait, string> = {
   technology: 'zanimata te tehnologija in digitalni svet',
@@ -122,6 +146,59 @@ const areaRules: AreaRule[] = [
   },
 ];
 
+const courseAreaRules: AreaRule[] = [
+  {
+    label: 'Računalništvo in tehnika',
+    keywords: ['programir', 'algorit', 'racunal', 'informat', 'podatkovne baz', 'umetna inteligenca', 'strojno ucenje', 'kibernet', 'programsk', 'spletn', 'operacijski sistem', 'omrez', 'elektron', 'elektrotehn', 'avtomat', 'robot', 'mehatron', 'mehanik', 'termodinam', 'konstrukc', 'gradben', 'geodez', 'energet', 'telekomunik', 'material'],
+    traits: { technology: 5, mathematics: 3, analytical: 4, practical: 3, creative: 1 },
+  },
+  {
+    label: 'Matematika in analitika',
+    keywords: ['matemat', 'statist', 'verjetnost', 'optimiz', 'analiza podat', 'modelir', 'numeric'],
+    traits: { mathematics: 5, analytical: 5, research: 2, technology: 1 },
+  },
+  {
+    label: 'Zdravstvo in medicina',
+    keywords: ['anatom', 'fiziolog', 'patolog', 'zdravst', 'klinic', 'medicin', 'farmakolog', 'fizioterap', 'zdravstvena nega', 'dental', 'rehabilitac'],
+    traits: { health: 5, social: 3, practical: 4, research: 2, nature: 1 },
+  },
+  {
+    label: 'Naravoslovje in okolje',
+    keywords: ['biolog', 'kemij', 'fizik', 'ekolog', 'okolj', 'genet', 'mikrobiolog', 'biokem', 'botan', 'zoolog', 'agronom', 'gozdar', 'laborator'],
+    traits: { nature: 5, research: 4, analytical: 3, practical: 2 },
+  },
+  {
+    label: 'Poslovanje in ekonomija',
+    keywords: ['ekonom', 'financ', 'racunovod', 'marketing', 'trzenj', 'management', 'menedzment', 'podjet', 'organizacij', 'logistik', 'poslov'],
+    traits: { business: 5, analytical: 2, social: 2, practical: 3 },
+  },
+  {
+    label: 'Družba in pravo',
+    keywords: ['psiholog', 'sociolog', 'pravo', 'pravn', 'polit', 'druzb', 'komunik', 'medij', 'socialno delo', 'uprav', 'varnost', 'kriminal', 'antropolog', 'mednarodni odnosi'],
+    traits: { society: 5, social: 3, analytical: 2, research: 2, languages: 1 },
+  },
+  {
+    label: 'Izobraževanje',
+    keywords: ['didakt', 'pedagog', 'poucev', 'izobrazev', 'vzgoj', 'metodik', 'ucitelj'],
+    traits: { education: 5, social: 5, practical: 3, creative: 2 },
+  },
+  {
+    label: 'Umetnost in oblikovanje',
+    keywords: ['oblikov', 'risanj', 'slikanj', 'glasb', 'film', 'gledal', 'ples', 'fotograf', 'arhitektur', 'vizual', 'kipar'],
+    traits: { arts: 5, creative: 5, practical: 2, lowMath: 2 },
+  },
+  {
+    label: 'Jeziki in humanistika',
+    keywords: ['anglesc', 'nemsc', 'slovensc', 'jezik', 'knjizev', 'prevaj', 'zgodovin', 'filozof', 'kultur', 'humanist', 'teolog', 'arheolog'],
+    traits: { languages: 5, society: 2, research: 3, creative: 2, lowMath: 3 },
+  },
+  {
+    label: 'Šport in gibanje',
+    keywords: ['sport', 'kineziolog', 'vadb', 'trening', 'gibal'],
+    traits: { health: 2, practical: 5, social: 3, nature: 1 },
+  },
+];
+
 const specializationRules: Array<{ keywords: string[]; traits: TraitScores }> = [
   {
     keywords: ['racunal', 'informat', 'programir', 'podatkovne tehnolog', 'kibernets'],
@@ -148,6 +225,11 @@ const specializationRules: Array<{ keywords: string[]; traits: TraitScores }> = 
     traits: { arts: 4, creative: 5, practical: 1 },
   },
 ];
+
+const preparedCourseAreaRules = courseAreaRules.map((rule) => ({
+  rule,
+  keywordTokens: rule.keywords.map((keyword) => advisorTokens([keyword])),
+}));
 
 export const advisorQuestions: AdvisorQuestion[] = [
   {
@@ -253,6 +335,7 @@ export const advisorQuestions: AdvisorQuestion[] = [
 export function recommendStudyProgrammes(
   registry: Registry,
   answers: Record<string, string>,
+  performerRegistry?: ProgrammePerformerSearchRegistry | null,
   limit = DEFAULT_RECOMMENDATION_LIMIT,
 ): AdvisorRecommendation[] {
   const userTraits = buildUserTraits(answers);
@@ -271,14 +354,39 @@ export function recommendStudyProgrammes(
         ? institutions.get(programme.university_id)
         : undefined;
       const profile = buildProgrammeProfile(programme, institution, university);
-      const similarity = cosineSimilarity(userTraits, profile.traits);
-      const reasons = bestReasons(userTraits, profile.traits);
+      const courseProfile = performerRegistry
+        ? getCourseProfile(performerRegistry, programme.id)
+        : emptyCourseProfile();
+      const hasCourseProfile = courseProfile.evidence.length > 0;
+      const programmeSimilarity = cosineSimilarity(userTraits, profile.traits);
+      const courseSimilarity = hasCourseProfile
+        ? cosineSimilarity(userTraits, courseProfile.traits)
+        : 0;
+      const similarity = hasCourseProfile
+        ? programmeSimilarity * (1 - COURSE_PROFILE_WEIGHT)
+          + courseSimilarity * COURSE_PROFILE_WEIGHT
+        : programmeSimilarity;
+      const recommendationTraits = hasCourseProfile
+        ? blendTraitProfiles(
+          profile.traits,
+          courseProfile.traits,
+          COURSE_PROFILE_WEIGHT,
+        )
+        : profile.traits;
+      const reasons = bestReasons(userTraits, recommendationTraits);
+      const programmeAreas = profile.areas.filter((area) =>
+        area !== 'Interdisciplinarno področje');
+      const areas = [...new Set([
+        ...programmeAreas,
+        ...courseProfile.areas,
+      ])];
 
       return {
         result: { item: programme, institution, university },
         matchPercent: Math.round(similarity * 100),
-        areas: profile.areas.slice(0, 2),
+        areas: (areas.length > 0 ? areas : profile.areas).slice(0, 2),
         reasons,
+        matchingCourses: bestMatchingCourses(userTraits, courseProfile.evidence),
       } satisfies AdvisorRecommendation;
     })
     .sort((a, b) =>
@@ -382,6 +490,172 @@ function buildProgrammeProfile(
   if (programme.type.short_name === 'EMAG') addTraits(traits, { research: 1, practical: 1 });
 
   return { traits, areas: [...new Set(areas)] };
+}
+
+function getCourseProfile(
+  registry: ProgrammePerformerSearchRegistry,
+  programmeId: string,
+): CourseProfile {
+  let registryCache = courseProfileCache.get(registry);
+  if (!registryCache) {
+    registryCache = new Map<string, CourseProfile>();
+    courseProfileCache.set(registry, registryCache);
+  }
+
+  const cached = registryCache.get(programmeId);
+  if (cached) return cached;
+
+  const profile = buildCourseProfile(registry.programmes[programmeId] ?? []);
+  registryCache.set(programmeId, profile);
+  return profile;
+}
+
+function buildCourseProfile(
+  teachers: ProgrammePerformerSearchTeacher[],
+): CourseProfile {
+  const uniqueCourses = new Map<
+    string,
+    { name: string; tokenIndex: CourseTokenIndex }
+  >();
+
+  for (const [, , courses] of teachers) {
+    for (const [name, nameEn] of courses) {
+      const key = normalizeSearchText(name);
+      if (key && !uniqueCourses.has(key)) {
+        uniqueCourses.set(key, {
+          name,
+          tokenIndex: indexCourseTokens(courseClassificationTokens(name, nameEn)),
+        });
+      }
+    }
+  }
+
+  const traits: TraitScores = {};
+  const evidence: CourseEvidence[] = [];
+  const areaCounts = new Map<string, number>();
+
+  for (const course of uniqueCourses.values()) {
+    const courseTraits: TraitScores = {};
+
+    for (const { rule, keywordTokens } of preparedCourseAreaRules) {
+      if (!keywordTokens.some((keyword) =>
+        courseMatchesKeyword(course.tokenIndex, keyword))) {
+        continue;
+      }
+      addTraits(courseTraits, rule.traits);
+      areaCounts.set(rule.label, (areaCounts.get(rule.label) ?? 0) + 1);
+    }
+
+    if (!hasTraits(courseTraits)) continue;
+    addTraits(traits, courseTraits);
+    evidence.push({ name: course.name, traits: courseTraits });
+  }
+
+  const areas = [...areaCounts.entries()]
+    .sort((left, right) =>
+      right[1] - left[1]
+      || left[0].localeCompare(right[0], 'sl'))
+    .map(([area]) => area);
+
+  return { traits, areas, evidence };
+}
+
+function advisorTokens(values: Array<string | null>): string[] {
+  return [...new Set(normalizeSearchText(values.filter(Boolean).join(' '))
+    .split(/\s+/)
+    .filter((token) => token.length >= 2 || /^\d+$/.test(token)))];
+}
+
+function courseClassificationTokens(name: string, nameEn: string | null): string[] {
+  return advisorTokens([name, nameEn].map((value) => {
+    const normalized = normalizeSearchText(value ?? '');
+    return normalized.split(/\b(?:za|for)\b/, 1)[0] ?? normalized;
+  }));
+}
+
+function indexCourseTokens(tokens: string[]): CourseTokenIndex {
+  const index: CourseTokenIndex = new Map();
+
+  for (const token of tokens) {
+    const initial = token[0];
+    if (!initial) continue;
+    const candidates = index.get(initial) ?? [];
+    candidates.push(token);
+    index.set(initial, candidates);
+  }
+
+  return index;
+}
+
+function courseMatchesKeyword(
+  courseTokenIndex: CourseTokenIndex,
+  keywordTokens: string[],
+): boolean {
+  return keywordTokens.length > 0 && keywordTokens.every((keywordToken) =>
+    (courseTokenIndex.get(keywordToken[0] ?? '') ?? []).some((courseToken) =>
+      tokenMatchKind(keywordToken, courseToken) !== null));
+}
+
+function emptyCourseProfile(): CourseProfile {
+  return { traits: {}, areas: [], evidence: [] };
+}
+
+function hasTraits(scores: TraitScores): boolean {
+  return Object.values(scores).some((score) => (score ?? 0) > 0);
+}
+
+function blendTraitProfiles(
+  programmeTraits: TraitScores,
+  courseTraits: TraitScores,
+  courseWeight: number,
+): TraitScores {
+  const blended: TraitScores = {};
+  const programmeLength = traitVectorLength(programmeTraits);
+  const courseLength = traitVectorLength(courseTraits);
+
+  for (const trait of Object.keys(reasonByTrait) as AdvisorTrait[]) {
+    const programmeScore = programmeLength
+      ? (programmeTraits[trait] ?? 0) / programmeLength
+      : 0;
+    const courseScore = courseLength
+      ? (courseTraits[trait] ?? 0) / courseLength
+      : 0;
+    blended[trait] = programmeScore * (1 - courseWeight)
+      + courseScore * courseWeight;
+  }
+
+  return blended;
+}
+
+function traitVectorLength(scores: TraitScores): number {
+  return Math.sqrt((Object.keys(reasonByTrait) as AdvisorTrait[]).reduce(
+    (total, trait) => total + (scores[trait] ?? 0) ** 2,
+    0,
+  ));
+}
+
+function bestMatchingCourses(
+  userTraits: TraitScores,
+  evidence: CourseEvidence[],
+): string[] {
+  return evidence
+    .map((course) => ({
+      name: course.name,
+      contribution: traitContribution(userTraits, course.traits),
+    }))
+    .filter((course) => course.contribution > 0)
+    .sort((left, right) =>
+      right.contribution - left.contribution
+      || left.name.localeCompare(right.name, 'sl'))
+    .slice(0, 3)
+    .map((course) => course.name);
+}
+
+function traitContribution(left: TraitScores, right: TraitScores): number {
+  return (Object.keys(reasonByTrait) as AdvisorTrait[]).reduce(
+    (total, trait) => total + (left[trait] ?? 0) * (right[trait] ?? 0),
+    0,
+  );
 }
 
 function addTraits(target: TraitScores, additions: TraitScores): void {
