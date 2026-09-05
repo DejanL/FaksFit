@@ -15,6 +15,8 @@ interface AdvisorScenario {
   expectedWithin: number;
   expectedArea: string;
   minimumAreaMatches: number;
+  expectedInstitution?: RegExp;
+  expectedInstitutionWithin?: number;
 }
 
 const registry = readJson<Registry>('data/slovenia-higher-education.json');
@@ -113,6 +115,62 @@ const scenarios: AdvisorScenario[] = [
     expectedArea: 'Poslovanje in ekonomija',
     minimumAreaMatches: 8,
   },
+  {
+    name: 'glasba',
+    answers: answersByLabels({
+      challenge: 'Ustvariti vizualno, glasbeno ali filmsko delo',
+      subjects: 'Likovna, glasbena ali druga umetnost',
+      focus: 'Z ljudmi',
+      outcome: 'Izvirna ideja ali izraz',
+      mathematics: 'Raje bi je imel manj',
+      learning: 'S praktičnim preizkušanjem',
+      environment: 'Studio, oder ali ustvarjalna delavnica',
+      purpose: 'Povezovati ljudi, jezike in ideje',
+    }),
+    expectedProgramme: /^Glasbena umetnost$/,
+    expectedProgrammeLabel: 'program Glasbena umetnost',
+    expectedWithin: 3,
+    expectedArea: 'Umetnost in oblikovanje',
+    minimumAreaMatches: 8,
+  },
+  {
+    name: 'šport in kineziologija',
+    answers: answersByLabels({
+      challenge: 'Pomagati človeku pri zdravstveni težavi',
+      subjects: 'Šport ali praktični pouk',
+      focus: 'Z naravo ali živimi sistemi',
+      outcome: 'Nekaj, kar dejansko deluje',
+      mathematics: 'V redu je, če ima jasen namen',
+      learning: 'S praktičnim preizkušanjem',
+      environment: 'Šola, klinika ali svetovalno okolje',
+      purpose: 'Pomagati ljudem pri zdravju ali razvoju',
+    }),
+    expectedProgramme: /^(Kineziologija|Športno treniranje)$/,
+    expectedProgrammeLabel: 'program Kineziologija ali Športno treniranje',
+    expectedWithin: 3,
+    expectedArea: 'Šport in gibanje',
+    minimumAreaMatches: 5,
+    expectedInstitution: /^Fakulteta za šport$/,
+    expectedInstitutionWithin: 3,
+  },
+  {
+    name: 'jeziki in prevajanje',
+    answers: answersByLabels({
+      challenge: 'Ustvariti vizualno, glasbeno ali filmsko delo',
+      subjects: 'Jeziki, zgodovina ali filozofija',
+      focus: 'Z besedami in vsebinami',
+      outcome: 'Jasna razlaga zahtevnega problema',
+      mathematics: 'Raje bi je imel manj',
+      learning: 'S poglobljenim razumevanjem teorije',
+      environment: 'Šola, klinika ali svetovalno okolje',
+      purpose: 'Povezovati ljudi, jezike in ideje',
+    }),
+    expectedProgramme: /^(Angleški jezik in književnost|Anglistika|Prevajalstvo)$/,
+    expectedProgrammeLabel: 'jezikovni ali prevajalski program',
+    expectedWithin: 5,
+    expectedArea: 'Jeziki in humanistika',
+    minimumAreaMatches: 8,
+  },
 ];
 
 describe.each(scenarios)('priporočila za profil: $name', (scenario) => {
@@ -143,6 +201,19 @@ describe.each(scenarios)('priporočila za profil: $name', (scenario) => {
     expect(recommendations.some((recommendation) =>
       recommendation.matchingCourses.length > 0)).toBe(true);
   });
+
+  if (scenario.expectedInstitution) {
+    it(`med prvimi ${scenario.expectedInstitutionWithin} vključuje pričakovano fakulteto`, () => {
+      const leadingRecommendations = recommendations.slice(
+        0,
+        scenario.expectedInstitutionWithin,
+      );
+      expect(leadingRecommendations.some((recommendation) =>
+        scenario.expectedInstitution?.test(
+          recommendation.result.institution?.name ?? '',
+        ))).toBe(true);
+    });
+  }
 });
 
 describe('fuzzy ujemanje predmetov v priporočilih', () => {

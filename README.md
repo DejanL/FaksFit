@@ -19,8 +19,8 @@ Za produkcijsko gradnjo uporabi:
 npm run build
 ```
 
-Vsebinske teste priporočilnega sistema za računalništvo, pravo, medicino,
-arhitekturo in ekonomijo zaženeš z:
+Vsebinske teste priporočilnega sistema za osem različnih študijskih profilov
+zaženeš z:
 
 ```bash
 npm test

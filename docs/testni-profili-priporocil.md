@@ -77,6 +77,51 @@ tehnično razmišljanje ter praktični rezultat.
 Pričakovanje: ekonomski ali poslovni program je med prvimi petimi, najmanj osem
 rezultatov pa spada v poslovanje in ekonomijo.
 
+## Glasba
+
+1. Ustvariti vizualno, glasbeno ali filmsko delo
+2. Likovna, glasbena ali druga umetnost
+3. Z ljudmi
+4. Izvirna ideja ali izraz
+5. Raje bi je imel manj
+6. S praktičnim preizkušanjem
+7. Studio, oder ali ustvarjalna delavnica
+8. Povezovati ljudi, jezike in ideje
+
+Pričakovanje: program »Glasbena umetnost« je med prvimi tremi, najmanj osem
+rezultatov pa spada v umetnost in oblikovanje. Profil združuje umetniško
+izražanje, praktično vajo, delo z ljudmi in nastopanje.
+
+## Šport in kineziologija
+
+1. Pomagati človeku pri zdravstveni težavi
+2. Šport ali praktični pouk
+3. Z naravo ali živimi sistemi
+4. Nekaj, kar dejansko deluje
+5. V redu je, če ima jasen namen
+6. S praktičnim preizkušanjem
+7. Šola, klinika ali svetovalno okolje
+8. Pomagati ljudem pri zdravju ali razvoju
+
+Pričakovanje: »Kineziologija« ali »Športno treniranje« je med prvimi tremi,
+najmanj pet rezultatov spada v šport in gibanje, med prvimi tremi pa se pojavi
+tudi program Fakultete za šport. Profil poudarja gibanje, praktično delo,
+človeško telo ter pozitiven vpliv na zdravje in razvoj.
+
+## Jeziki in prevajanje
+
+1. Ustvariti vizualno, glasbeno ali filmsko delo
+2. Jeziki, zgodovina ali filozofija
+3. Z besedami in vsebinami
+4. Jasna razlaga zahtevnega problema
+5. Raje bi je imel manj
+6. S poglobljenim razumevanjem teorije
+7. Šola, klinika ali svetovalno okolje
+8. Povezovati ljudi, jezike in ideje
+
+Pričakovanje: »Angleški jezik in književnost«, »Anglistika« ali »Prevajalstvo«
+je med prvimi petimi, najmanj osem rezultatov pa spada v jezike in humanistiko.
+
 ## Kaj testi preverjajo
 
 Za vsak profil test preveri ciljni program, prevladujoče področje in prisotnost
