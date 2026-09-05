@@ -84,6 +84,150 @@
     </label>
   </section>
 
+  <section
+    id="study-advisor"
+    class="advisor-shell"
+    [class.advisor-expanded]="advisorOpen()"
+    aria-labelledby="advisor-title"
+  >
+    @if (!advisorOpen()) {
+      <div class="advisor-teaser">
+        <div class="advisor-symbol" aria-hidden="true">✦</div>
+        <div>
+          <p class="eyebrow">Pomoč pri izbiri</p>
+          @if (advisorFinished()) {
+            <h2 id="advisor-title">Tvoja priporočila so pripravljena</h2>
+            <p>Odgovori so shranjeni samo v tem brskalniku, zato jih lahko kadarkoli znova odpreš.</p>
+          } @else if (advisorHasProgress()) {
+            <h2 id="advisor-title">Nadaljuj, kjer si končal</h2>
+            <p>Tvoj napredek je shranjen samo v tem brskalniku.</p>
+          } @else {
+            <h2 id="advisor-title">Še ne veš, kateri študij bi izbral?</h2>
+            <p>Odgovori na 8 kratkih vprašanj in odkrij programe, ki se ujemajo s tvojimi interesi.</p>
+          }
+        </div>
+        <div class="advisor-teaser-actions">
+          @if (advisorFinished()) {
+            <button type="button" [disabled]="loading() || error()" (click)="resumeAdvisor()">
+              Prikaži priporočila <span aria-hidden="true">→</span>
+            </button>
+            <button class="secondary" type="button" (click)="restartAdvisor()">Izbriši in začni znova</button>
+          } @else if (advisorHasProgress()) {
+            <button type="button" [disabled]="loading() || error()" (click)="resumeAdvisor()">
+              Nadaljuj vprašalnik <span aria-hidden="true">→</span>
+            </button>
+            <button class="secondary" type="button" (click)="restartAdvisor()">Izbriši odgovore</button>
+          } @else {
+            <button type="button" [disabled]="loading() || error()" (click)="startAdvisor()">
+              Začni vprašalnik <span aria-hidden="true">→</span>
+            </button>
+          }
+        </div>
+      </div>
+    } @else {
+      <div class="advisor-panel">
+        <header class="advisor-header">
+          <div>
+            <p class="eyebrow">FaksFit svetovalec</p>
+            <h2 id="advisor-title">Poišči študij, ki ti ustreza</h2>
+          </div>
+          <button class="advisor-close" type="button" aria-label="Zapri vprašalnik" (click)="closeAdvisor()">×</button>
+        </header>
+
+        @if (!advisorFinished()) {
+          @if (currentAdvisorQuestion(); as question) {
+            <div class="advisor-progress-heading">
+              <span>Vprašanje {{ advisorStep() + 1 }} od {{ advisorQuestions.length }}</span>
+              <span>{{ ((advisorStep() + 1) / advisorQuestions.length * 100).toFixed(0) }} %</span>
+            </div>
+            <div class="advisor-progress" aria-hidden="true">
+              <span [style.width.%]="advisorProgress()"></span>
+            </div>
+
+            <div class="advisor-question" aria-live="polite">
+              <h3>{{ question.title }}</h3>
+              <p>{{ question.description }}</p>
+
+              <div class="advisor-options">
+                @for (option of question.options; track option.id) {
+                  <button
+                    type="button"
+                    [class.selected]="advisorAnswers()[question.id] === option.id"
+                    (click)="selectAdvisorAnswer(question.id, option.id)"
+                  >
+                    <span class="advisor-option-icon" aria-hidden="true">{{ option.icon }}</span>
+                    <span>
+                      <strong>{{ option.label }}</strong>
+                      <small>{{ option.description }}</small>
+                    </span>
+                  </button>
+                }
+              </div>
+            </div>
+
+            <div class="advisor-navigation">
+              <button type="button" [disabled]="advisorStep() === 0" (click)="previousAdvisorQuestion()">← Nazaj</button>
+              <span>Napredek se samodejno shrani v tem brskalniku</span>
+            </div>
+          }
+        } @else {
+          <div class="advisor-results" aria-live="polite">
+            <div class="advisor-results-heading">
+              <div>
+                <p class="eyebrow">Tvoja priporočila</p>
+                <h3>Programi, vredni podrobnejšega ogleda</h3>
+                <p>Izbrali smo raznolike programe prve stopnje in enovite magistrske programe.</p>
+              </div>
+              <button type="button" (click)="restartAdvisor()">Izbriši odgovore in začni znova</button>
+            </div>
+
+            <div class="advisor-recommendation-list">
+              @for (recommendation of advisorRecommendations(); track recommendation.result.item.id) {
+                <article class="advisor-recommendation">
+                  <div class="advisor-score" [attr.aria-label]="recommendation.matchPercent + ' odstotkov ujemanja'">
+                    <strong>{{ recommendation.matchPercent }} %</strong>
+                    <span>ujemanje</span>
+                  </div>
+                  <div class="advisor-recommendation-content">
+                    <div class="advisor-areas">
+                      @for (area of recommendation.areas; track area) {
+                        <span>{{ area }}</span>
+                      }
+                    </div>
+                    <h4>{{ recommendation.result.item.name }}</h4>
+                    <p class="advisor-institution">
+                      {{ recommendation.result.institution?.name || 'Zavod ni naveden' }}
+                    </p>
+                    <ul>
+                      @for (reason of recommendation.reasons; track reason) {
+                        <li>{{ reason }}</li>
+                      }
+                    </ul>
+                    <div class="advisor-recommendation-actions">
+                      <a
+                        [href]="programmeUrl(recommendation.result)"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >Podrobnosti programa <span aria-hidden="true">↗</span></a>
+                      <button type="button" (click)="exploreAdvisorRecommendation(recommendation)">
+                        Poišči sorodne izvedbe
+                      </button>
+                    </div>
+                  </div>
+                </article>
+              }
+            </div>
+
+            <p class="advisor-disclaimer">
+              Rezultat je informativna pomoč na podlagi imena in vrste programa, ne dokončna poklicna usmeritev. Pred odločitvijo preveri predmetnik in vpisne pogoje.
+              Tvoji odgovori ostanejo samo v lokalni shrambi tega brskalnika in se ne pošiljajo na strežnik.
+            </p>
+          </div>
+        }
+      </div>
+    }
+  </section>
+
   @if (loading()) {
     <section class="state" aria-live="polite">
       <span class="spinner"></span>
@@ -95,16 +239,18 @@
       <p>Preveri, ali je datoteka na voljo, in osveži stran.</p>
     </section>
   } @else if (!hasSearchCriteria()) {
-    <section class="state empty">
-      <div class="empty-icon">⌕</div>
-      <h2>Začni z iskalnim izrazom ali filtrom</h2>
-      <p>Vnesi ime področja, fakultete, programa ali eVŠ kodo oziroma izberi enega od filtrov.</p>
-      <div class="suggestions" aria-label="Predlogi iskanja">
-        @for (suggestion of ['informatika', 'medicina', 'pedagoška']; track suggestion) {
-          <button type="button" (click)="query.set(suggestion)">{{ suggestion }}</button>
-        }
-      </div>
-    </section>
+    @if (!advisorOpen()) {
+      <section class="state empty">
+        <div class="empty-icon">⌕</div>
+        <h2>Začni z iskalnim izrazom ali filtrom</h2>
+        <p>Vnesi ime področja, fakultete, programa ali eVŠ kodo oziroma izberi enega od filtrov.</p>
+        <div class="suggestions" aria-label="Predlogi iskanja">
+          @for (suggestion of ['informatika', 'medicina', 'pedagoška']; track suggestion) {
+            <button type="button" (click)="query.set(suggestion)">{{ suggestion }}</button>
+          }
+        </div>
+      </section>
+    }
   } @else {
     <section class="results" aria-live="polite">
       <div class="results-heading">

@@ -1,6 +1,13 @@
-import { CommonModule } from '@angular/common';
+import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  PLATFORM_ID,
+  computed,
+  inject,
+  signal,
+} from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import {
   ProgrammePerformerSearchRegistry,
@@ -16,6 +23,20 @@ import {
   normalizeSearchText,
   searchProgrammeIndex,
 } from './programme-search';
+import {
+  AdvisorRecommendation,
+  advisorQuestions,
+  recommendStudyProgrammes,
+} from './study-advisor';
+
+const ADVISOR_STORAGE_KEY = 'faksfit.study-advisor.v1';
+
+interface StoredAdvisorState {
+  version: 1;
+  answers: Record<string, string>;
+  step: number;
+  finished: boolean;
+}
 
 @Component({
   selector: 'app-root',
@@ -26,6 +47,7 @@ import {
 })
 export class App {
   private readonly http = inject(HttpClient);
+  private readonly platformId = inject(PLATFORM_ID);
 
   readonly registry = signal<Registry | null>(null);
   readonly loading = signal(true);
@@ -47,6 +69,30 @@ export class App {
   readonly teachersError = signal(false);
   readonly teacherQuery = signal('');
   readonly visibleTeacherLimit = signal(this.teacherPageSize);
+  readonly advisorQuestions = advisorQuestions;
+  readonly advisorOpen = signal(false);
+  readonly advisorStep = signal(0);
+  readonly advisorAnswers = signal<Record<string, string>>({});
+  readonly advisorFinished = signal(false);
+
+  readonly advisorHasProgress = computed(() =>
+    Object.keys(this.advisorAnswers()).length > 0,
+  );
+
+  readonly currentAdvisorQuestion = computed(() =>
+    this.advisorQuestions[this.advisorStep()],
+  );
+
+  readonly advisorProgress = computed(() =>
+    ((this.advisorStep() + 1) / this.advisorQuestions.length) * 100,
+  );
+
+  readonly advisorRecommendations = computed(() => {
+    const registry = this.registry();
+    return registry && this.advisorFinished()
+      ? recommendStudyProgrammes(registry, this.advisorAnswers())
+      : [];
+  });
 
   readonly hasActiveFilters = computed(() =>
     this.cycle() !== 'all'
@@ -175,6 +221,7 @@ export class App {
   );
 
   constructor() {
+    this.restoreAdvisorState();
     void this.loadRegistry();
     void this.loadPerformerSearchRegistry();
   }
@@ -212,6 +259,63 @@ export class App {
 
   showMoreResults(): void {
     this.visibleResultLimit.update((limit) => limit + this.resultLimit);
+  }
+
+  startAdvisor(): void {
+    this.advisorOpen.set(true);
+    this.advisorStep.set(0);
+    this.advisorAnswers.set({});
+    this.advisorFinished.set(false);
+    this.clearStoredAdvisorState();
+  }
+
+  resumeAdvisor(): void {
+    this.advisorOpen.set(true);
+  }
+
+  closeAdvisor(): void {
+    this.advisorOpen.set(false);
+  }
+
+  selectAdvisorAnswer(questionId: string, optionId: string): void {
+    this.advisorAnswers.update((answers) => ({
+      ...answers,
+      [questionId]: optionId,
+    }));
+
+    if (this.advisorStep() === this.advisorQuestions.length - 1) {
+      this.advisorFinished.set(true);
+      this.persistAdvisorState();
+      return;
+    }
+
+    this.advisorStep.update((step) => step + 1);
+    this.persistAdvisorState();
+  }
+
+  previousAdvisorQuestion(): void {
+    if (this.advisorStep() === 0) return;
+    this.advisorFinished.set(false);
+    this.advisorStep.update((step) => step - 1);
+    this.persistAdvisorState();
+  }
+
+  restartAdvisor(): void {
+    this.advisorOpen.set(true);
+    this.advisorStep.set(0);
+    this.advisorAnswers.set({});
+    this.advisorFinished.set(false);
+    this.clearStoredAdvisorState();
+  }
+
+  exploreAdvisorRecommendation(recommendation: AdvisorRecommendation): void {
+    this.query.set(recommendation.result.item.name);
+    this.cycle.set('all');
+    this.institutionId.set('all');
+    this.memberInstitutionId.set('all');
+    this.includeInvalid.set(false);
+    this.advisorOpen.set(false);
+    this.resetVisibleResults();
   }
 
   searchMatchLabel(result: SearchResult): string {
@@ -338,6 +442,78 @@ export class App {
 
     if (!this.teachersRegistry() && !this.teachersLoading()) {
       void this.loadTeachersRegistry();
+    }
+  }
+
+  private restoreAdvisorState(): void {
+    if (!isPlatformBrowser(this.platformId)) return;
+
+    try {
+      const storedValue = localStorage.getItem(ADVISOR_STORAGE_KEY);
+      if (!storedValue) return;
+
+      const storedState = JSON.parse(storedValue) as Partial<StoredAdvisorState>;
+      if (storedState.version !== 1 || !storedState.answers) {
+        this.clearStoredAdvisorState();
+        return;
+      }
+
+      const validAnswers: Record<string, string> = {};
+      for (const question of this.advisorQuestions) {
+        const answer = storedState.answers[question.id];
+        if (question.options.some((option) => option.id === answer)) {
+          validAnswers[question.id] = answer;
+        }
+      }
+
+      if (Object.keys(validAnswers).length === 0) {
+        this.clearStoredAdvisorState();
+        return;
+      }
+
+      const allQuestionsAnswered = this.advisorQuestions.every((question) =>
+        Boolean(validAnswers[question.id]));
+      const restoredStep = Number.isInteger(storedState.step)
+        ? Math.min(
+          Math.max(storedState.step ?? 0, 0),
+          this.advisorQuestions.length - 1,
+        )
+        : 0;
+
+      this.advisorAnswers.set(validAnswers);
+      this.advisorStep.set(allQuestionsAnswered
+        ? this.advisorQuestions.length - 1
+        : restoredStep);
+      this.advisorFinished.set(storedState.finished === true && allQuestionsAnswered);
+    } catch {
+      this.clearStoredAdvisorState();
+    }
+  }
+
+  private persistAdvisorState(): void {
+    if (!isPlatformBrowser(this.platformId)) return;
+
+    const state: StoredAdvisorState = {
+      version: 1,
+      answers: this.advisorAnswers(),
+      step: this.advisorStep(),
+      finished: this.advisorFinished(),
+    };
+
+    try {
+      localStorage.setItem(ADVISOR_STORAGE_KEY, JSON.stringify(state));
+    } catch {
+      // Aplikacija ostane uporabna tudi, ko brskalnik blokira lokalno shrambo.
+    }
+  }
+
+  private clearStoredAdvisorState(): void {
+    if (!isPlatformBrowser(this.platformId)) return;
+
+    try {
+      localStorage.removeItem(ADVISOR_STORAGE_KEY);
+    } catch {
+      // Brisanje ni nujno na voljo v zasebnem načinu ali omejenem okolju.
     }
   }
 }
