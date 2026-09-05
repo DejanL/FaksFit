@@ -176,7 +176,10 @@
               <div>
                 <p class="eyebrow">Tvoja priporočila</p>
                 <h3>Programi, vredni podrobnejšega ogleda</h3>
-                <p>Izbrali smo raznolike programe prve stopnje in enovite magistrske programe.</p>
+                <p>
+                  Prikazujemo {{ advisorRecommendations().length }} najbolje ocenjenih in raznolikih
+                  programov prve stopnje oziroma enovitih magistrskih programov.
+                </p>
               </div>
               <button type="button" (click)="restartAdvisor()">Izbriši odgovore in začni znova</button>
             </div>

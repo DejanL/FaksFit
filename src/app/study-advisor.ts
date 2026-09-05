@@ -53,6 +53,9 @@ interface AreaRule {
   traits: TraitScores;
 }
 
+const DEFAULT_RECOMMENDATION_LIMIT = 12;
+const MAX_RECOMMENDATIONS_PER_INSTITUTION = 3;
+
 const reasonByTrait: Record<AdvisorTrait, string> = {
   technology: 'zanimata te tehnologija in digitalni svet',
   mathematics: 'ustreza ti delo z matematiko in številkami',
@@ -250,7 +253,7 @@ export const advisorQuestions: AdvisorQuestion[] = [
 export function recommendStudyProgrammes(
   registry: Registry,
   answers: Record<string, string>,
-  limit = 6,
+  limit = DEFAULT_RECOMMENDATION_LIMIT,
 ): AdvisorRecommendation[] {
   const userTraits = buildUserTraits(answers);
   const institutions = new Map<string, Institution>(
@@ -291,12 +294,28 @@ export function recommendStudyProgrammes(
     const nameKey = normalizeSearchText(recommendation.result.item.name);
     const institutionKey = recommendation.result.item.institution_id;
     if (seenNames.has(nameKey)) continue;
-    if ((institutionCounts.get(institutionKey) ?? 0) >= 2) continue;
+    if (
+      (institutionCounts.get(institutionKey) ?? 0)
+      >= MAX_RECOMMENDATIONS_PER_INSTITUTION
+    ) continue;
 
     recommendations.push(recommendation);
     seenNames.add(nameKey);
     institutionCounts.set(institutionKey, (institutionCounts.get(institutionKey) ?? 0) + 1);
     if (recommendations.length === limit) break;
+  }
+
+  // Če omejitev po zavodih vrne premalo rezultatov, seznam dopolnimo z
+  // naslednjimi najbolje ocenjenimi programi, vendar še vedno brez podvojenih imen.
+  if (recommendations.length < limit) {
+    for (const recommendation of ranked) {
+      const nameKey = normalizeSearchText(recommendation.result.item.name);
+      if (seenNames.has(nameKey)) continue;
+
+      recommendations.push(recommendation);
+      seenNames.add(nameKey);
+      if (recommendations.length === limit) break;
+    }
   }
 
   return recommendations;
