@@ -36,16 +36,19 @@ več izbir posameznemu vprašanju ne da nesorazmerno velike teže. Odgovori se
 hranijo samo v lokalni shrambi brskalnika; stare enojne odgovore aplikacija ob
 naslednjem obisku samodejno pretvori v novi zapis. Pri vsakem vprašanju je treba
 izbiro potrditi z gumbom »Naprej«, ki je do izbire odgovora onemogočen.
-Pri priporočenih programih sta prikazana izvajalska fakulteta oziroma zavod in
-pripadajoča univerza, kadar je navedena v viru podatkov.
+Pri priporočenih programih in splošnih iskalnih zadetkih so prikazani izvajalska
+fakulteta oziroma zavod, pripadajoča univerza, kadar je navedena v viru podatkov,
+ter kraji izvajanja konkretnega programa. Vsak kraj je povezava, ki odpre naslov
+v Google Maps v novem zavihku.
 Sistem vrne največ 50 najbolje ocenjenih in raznolikih programov. Rezultati so
 razdeljeni na strani po 10 programov z oštevilčeno navigacijo ter gumboma za
 prejšnjo in naslednjo stran.
 
 Deveto vprašanje omogoča izbiro največ treh želenih območij študija. Možnost
-»Lokacija mi ni pomembna« je izključujoča. Program na izbranem območju dobi pri
-razvrščanju zmeren pribitek, programi drugod pa zato niso izločeni. Kraji
-izvajanja so pridobljeni iz uradnih podatkov NAKVIS na ravni zavoda.
+»Lokacija mi ni pomembna« je izključujoča. Ob izbiri območij sistem prikaže le
+programe, ki se izvajajo na vsaj enem izmed njih. Kraji izvajanja so pridobljeni
+iz uradnih podatkov NAKVIS za vsak posamezen študijski program, zato lokacije
+drugih programov istega zavoda ne vplivajo na priporočilo.
 
 Za lokalni preizkus različice z GitHub Pages podpotjo uporabi:
 
@@ -76,8 +79,8 @@ npm run build-search-data
 
 Če NAKVIS za posamezen program ne ponuja seznama učiteljev, je program v drugi datoteki označen z `available: false`.
 
-Samo kraje izvajanja v glavnem registru lahko brez ponovnega prenosa učiteljev
-osvežiš z:
+Kraje izvajanja zavodov in posameznih programov v glavnem registru lahko brez
+ponovnega prenosa učiteljev osvežiš z:
 
 ```bash
 npm run refresh-locations

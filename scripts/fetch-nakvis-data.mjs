@@ -24,6 +24,7 @@ const PERFORMER_SEARCH_OUTPUT_PATH = resolve(
 const PAGE_SIZE = 100;
 const TEACHER_FETCH_CONCURRENCY = 8;
 const INSTITUTION_FETCH_CONCURRENCY = 4;
+const PROGRAMME_FETCH_CONCURRENCY = 8;
 
 const programmeTypes = {
   0: { name: "Neznano", name_en: "Unknown", short_name: null },
@@ -268,6 +269,47 @@ async function fetchInstitutionStudyLocations(institutions) {
   return new Map(entries);
 }
 
+function normalizeProgrammeStudyLocations(programme) {
+  return [...new Set(
+    (programme.carriedOutBy ?? [])
+      .filter((performer) => performer.active !== false)
+      .map((performer) => performer.implementingAddress?.trim())
+      .filter(Boolean),
+  )].sort((left, right) => left.localeCompare(right, "sl"));
+}
+
+async function fetchProgrammeStudyLocations(programmes) {
+  let completedCount = 0;
+  const entries = await mapWithConcurrency(
+    programmes,
+    PROGRAMME_FETCH_CONCURRENCY,
+    async (programme) => {
+      const programmeId = programme.id ?? programme._id;
+      try {
+        const details = await fetchJson(`/study-programmes/${programmeId}`);
+        return [programmeId, normalizeProgrammeStudyLocations(details)];
+      } catch (error) {
+        console.warn(
+          `Location data unavailable for study programme ${programmeId}: ${error.message}`,
+        );
+        return [programmeId, programme.study_locations ?? []];
+      } finally {
+        completedCount += 1;
+        if (
+          completedCount % 100 === 0
+          || completedCount === programmes.length
+        ) {
+          console.log(
+            `Fetched location data for ${completedCount}/${programmes.length} study programmes`,
+          );
+        }
+      }
+    },
+  );
+
+  return new Map(entries);
+}
+
 function normalizeInstitution(
   institution,
   hierarchyById,
@@ -302,7 +344,12 @@ function normalizeInstitution(
   };
 }
 
-function normalizeProgramme(programme, institutionId, universityId) {
+function normalizeProgramme(
+  programme,
+  institutionId,
+  universityId,
+  studyLocationsByProgrammeId,
+) {
   const type = programmeTypes[programme.vrsta] ?? programmeTypes[0];
   const cycle = programmeCycles[programme.stopnja] ?? null;
 
@@ -313,6 +360,7 @@ function normalizeProgramme(programme, institutionId, universityId) {
     name_en: nullable(programme.ime_ang),
     institution_id: institutionId,
     university_id: nullable(universityId),
+    study_locations: studyLocationsByProgrammeId.get(programme._id) ?? [],
     type: {
       code: programme.vrsta,
       name: type.name,
@@ -358,12 +406,18 @@ function normalizeProgramme(programme, institutionId, universityId) {
 async function main() {
   if (LOCATIONS_ONLY) {
     const registry = JSON.parse(await readFile(OUTPUT_PATH, "utf8"));
-    const studyLocationsByInstitutionId = await fetchInstitutionStudyLocations(
-      registry.institutions,
-    );
+    const [studyLocationsByInstitutionId, studyLocationsByProgrammeId] =
+      await Promise.all([
+        fetchInstitutionStudyLocations(registry.institutions),
+        fetchProgrammeStudyLocations(registry.study_programmes),
+      ]);
     registry.institutions = registry.institutions.map((institution) => ({
       ...institution,
       study_locations: studyLocationsByInstitutionId.get(institution.id) ?? [],
+    }));
+    registry.study_programmes = registry.study_programmes.map((programme) => ({
+      ...programme,
+      study_locations: studyLocationsByProgrammeId.get(programme.id) ?? [],
     }));
     registry.metadata.study_locations_generated_at = new Date().toISOString();
     await writeFile(OUTPUT_PATH, `${JSON.stringify(registry, null, 2)}\n`, "utf8");
@@ -392,6 +446,9 @@ async function main() {
     hierarchyRecords.map((institution) => [institution._id, institution]),
   );
 
+  const studyLocationsByProgrammeId = await fetchProgrammeStudyLocations(
+    rawProgrammes,
+  );
   const normalizedProgrammes = rawProgrammes.map((programme) => {
     const institution = institutionByPair.get(
       `${programme.zavod_naziv}\u0000${programme.zavod_kratica ?? ""}`,
@@ -405,7 +462,12 @@ async function main() {
       ? institutionByName.get(programme.univerza_naziv)
       : null;
 
-    return normalizeProgramme(programme, institution._id, university?._id);
+    return normalizeProgramme(
+      programme,
+      institution._id,
+      university?._id,
+      studyLocationsByProgrammeId,
+    );
   });
 
   const programmesByInstitutionId = normalizedProgrammes.reduce(

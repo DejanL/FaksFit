@@ -7,8 +7,10 @@ import {
   type AdvisorAnswers,
   advisorQuestions,
   buildUserTraits,
+  institutionMatchesLocation,
   normalizeAdvisorAnswers,
   paginateAdvisorRecommendations,
+  programmeMatchesLocation,
   recommendStudyProgrammes,
   toggleAdvisorAnswerSelection,
 } from './study-advisor';
@@ -389,6 +391,51 @@ describe('izvajalci priporočenega programa', () => {
 });
 
 describe('lokacijske preference', () => {
+  const singleLocationScenarios = [
+    {
+      optionId: 'location-central',
+      area: 'Ljubljana in osrednja Slovenija',
+      representativeLocations: ['1000 Ljubljana', 'Domžale', 'Trbovlje'],
+      outsideLocation: 'Maribor',
+    },
+    {
+      optionId: 'location-northeast',
+      area: 'Maribor in severovzhodna Slovenija',
+      representativeLocations: ['Maribor', 'Ptuj', 'Murska Sobota'],
+      outsideLocation: 'Ljubljana',
+    },
+    {
+      optionId: 'location-savinjska-koroska',
+      area: 'Savinjska in Koroška',
+      representativeLocations: ['Celje', 'Velenje', 'Slovenj Gradec'],
+      outsideLocation: 'Kranj',
+    },
+    {
+      optionId: 'location-gorenjska',
+      area: 'Gorenjska',
+      representativeLocations: ['Kranj', 'Bled', 'Škofja Loka'],
+      outsideLocation: 'Koper',
+    },
+    {
+      optionId: 'location-coast-karst',
+      area: 'Obala in Kras',
+      representativeLocations: ['Koper', 'Portorož', 'Sežana'],
+      outsideLocation: 'Nova Gorica',
+    },
+    {
+      optionId: 'location-goriska',
+      area: 'Goriška',
+      representativeLocations: ['Nova Gorica', 'Ajdovščina', 'Šempeter pri Gorici'],
+      outsideLocation: 'Novo mesto',
+    },
+    {
+      optionId: 'location-southeast-posavje',
+      area: 'Dolenjska in Posavje',
+      representativeLocations: ['Novo mesto', 'Krško', 'Brežice'],
+      outsideLocation: 'Celje',
+    },
+  ];
+
   it('možnost brez lokacijske preference ne spremeni rezultatov', () => {
     const { location: _location, ...answersWithoutLocation } = scenarios[0].answers;
     const withoutLocation = recommendStudyProgrammes(
@@ -411,10 +458,11 @@ describe('lokacijske preference', () => {
     ]));
   });
 
-  it('program na izbranem območju uvrsti pred sicer enakovreden program', () => {
+  it('izloči sicer enakovreden program zunaj izbranega območja', () => {
     const syntheticRegistry = registryWithSingleProgramme();
     syntheticRegistry.institutions[0].study_locations = ['2000 Maribor'];
     syntheticRegistry.study_programmes[0].name = 'A testni program';
+    syntheticRegistry.study_programmes[0].study_locations = ['2000 Maribor'];
     syntheticRegistry.institutions.push({
       ...syntheticRegistry.institutions[0],
       id: 'central-institution',
@@ -426,6 +474,7 @@ describe('lokacijske preference', () => {
       id: 'central-programme',
       name: 'Z testni program',
       institution_id: 'central-institution',
+      study_locations: ['1000 Ljubljana'],
     });
 
     const recommendations = recommendStudyProgrammes(syntheticRegistry, {
@@ -433,8 +482,89 @@ describe('lokacijske preference', () => {
       location: ['location-central'],
     }, undefined, 2);
 
+    expect(recommendations).toHaveLength(1);
     expect(recommendations[0]?.result.item.id).toBe('central-programme');
     expect(recommendations[0]?.reasons[0]).toContain('območij');
+  });
+
+  it('uporabi kraj izvajanja programa in ne vseh krajev njegove fakultete', () => {
+    const programme = registry.study_programmes.find((candidate) =>
+      candidate.id === '601294465f658a74ae513eb0');
+    const institution = registry.institutions.find((candidate) =>
+      candidate.id === programme?.institution_id);
+
+    expect(programme?.name).toBe('Upravljanje z okoljem');
+    expect(institution?.name).toBe('Fakulteta za poslovne in upravne vede');
+    expect(institutionMatchesLocation(institution, 'location-central')).toBe(true);
+    expect(programme).toBeDefined();
+    expect(programmeMatchesLocation(
+      programme!,
+      institution,
+      'location-central',
+    )).toBe(false);
+    expect(programmeMatchesLocation(
+      programme!,
+      institution,
+      'location-southeast-posavje',
+    )).toBe(true);
+
+    const centralRecommendations = recommendStudyProgrammes(registry, {
+      location: ['location-central'],
+    }, performerRegistry);
+    expect(centralRecommendations.some((recommendation) =>
+      recommendation.result.item.id === programme?.id)).toBe(false);
+  });
+
+  describe.each(singleLocationScenarios)('$area', (scenario) => {
+    it('pravilno prepozna kraje območja in zavrne kraj iz drugega območja', () => {
+      for (const studyLocation of scenario.representativeLocations) {
+        expect(programmeMatchesLocation({
+          ...registry.study_programmes[0],
+          study_locations: [studyLocation],
+        }, registry.institutions[0], scenario.optionId), studyLocation).toBe(true);
+      }
+
+      expect(programmeMatchesLocation({
+        ...registry.study_programmes[0],
+        study_locations: [scenario.outsideLocation],
+      }, registry.institutions[0], scenario.optionId)).toBe(false);
+    });
+
+    it('pri izključno tej lokacijski izbiri vrne programe z izbranega območja', () => {
+      const recommendations = recommendStudyProgrammes(registry, {
+        location: [scenario.optionId],
+      }, performerRegistry, 10);
+
+      expect(recommendations).toHaveLength(10);
+      for (const recommendation of recommendations) {
+        expect(
+          programmeMatchesLocation(
+            recommendation.result.item,
+            recommendation.result.institution,
+            scenario.optionId,
+          ),
+          `${recommendation.result.item.name} — ${recommendation.result.institution?.name}`,
+        ).toBe(true);
+        expect(recommendation.reasons[0]).toContain('območij');
+      }
+    });
+
+    it('pri polnem profilu vrne samo programe z izbranega območja', () => {
+      const { location: _location, ...answersWithoutLocation } = scenarios[0].answers;
+      const withLocation = recommendStudyProgrammes(registry, {
+        ...answersWithoutLocation,
+        location: [scenario.optionId],
+      }, performerRegistry);
+      const locationMatches = withLocation.filter((recommendation) =>
+        programmeMatchesLocation(
+          recommendation.result.item,
+          recommendation.result.institution,
+          scenario.optionId,
+        ));
+
+      expect(withLocation.length).toBeGreaterThan(0);
+      expect(locationMatches).toHaveLength(withLocation.length);
+    });
   });
 });
 
@@ -485,6 +615,7 @@ function registryWithSingleProgramme(): Registry {
       name_en: null,
       institution_id: 'institution',
       university_id: null,
+      study_locations: [],
       type: { code: 1, name: 'Univerzitetni', short_name: 'UN' },
       cycle: { code: 'I.', number: 1, name: 'Prva stopnja' },
       duration_years: 3,

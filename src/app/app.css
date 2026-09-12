@@ -432,6 +432,13 @@ select {
 }
 .advisor-recommendation h4 { margin: 0; color: #263a34; font-size: 1rem; }
 .advisor-institution { margin: 4px 0 9px; color: #6e7f79; font-size: .74rem; }
+.programme-locations {
+  margin: -3px 0 9px;
+  color: #526b63;
+  font-size: .7rem;
+  line-height: 1.4;
+}
+.programme-locations strong { color: #345e52; }
 .advisor-recommendation ul { display: grid; gap: 4px; margin: 0; padding-left: 17px; color: #52655f; font-size: .72rem; line-height: 1.4; }
 .advisor-course-evidence {
   margin: 10px 0 0;

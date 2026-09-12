@@ -227,7 +227,7 @@
                           [href]="recommendation.result.institution.website"
                           target="_blank"
                           rel="noopener noreferrer"
-                        >{{ recommendation.result.institution.name }}</a>
+                        >{{ recommendation.result.institution.name }} <span class="external-icon" aria-hidden="true">↗</span></a>
                       } @else {
                         {{ recommendation.result.institution?.name || 'Zavod ni naveden' }}
                       }
@@ -242,12 +242,29 @@
                             [href]="recommendation.result.university.website"
                             target="_blank"
                             rel="noopener noreferrer"
-                          >{{ recommendation.result.university.name }}</a>
+                          >{{ recommendation.result.university.name }} <span class="external-icon" aria-hidden="true">↗</span></a>
                         } @else {
                           {{ recommendation.result.university.name }}
                         }
                       }
                     </p>
+                    @if (recommendation.result.item.study_locations.length > 0) {
+                      <p class="programme-locations">
+                        <strong>Kraj izvajanja: </strong>
+                        @for (
+                          location of recommendation.result.item.study_locations;
+                          track location;
+                          let last = $last
+                        ) {
+                          <a
+                            class="institution-link"
+                            [href]="googleMapsSearchUrl(location)"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >{{ location }} <span class="external-icon" aria-hidden="true">↗</span></a>@if (!last) {<span aria-hidden="true"> · </span>}
+                        }
+                      </p>
+                    }
                     <ul>
                       @for (reason of recommendation.reasons; track reason) {
                         <li>{{ reason }}</li>
@@ -383,7 +400,7 @@
                         [href]="result.institution.website"
                         target="_blank"
                         rel="noopener noreferrer"
-                      >{{ result.institution.name }}</a>
+                      >{{ result.institution.name }} <span class="external-icon" aria-hidden="true">↗</span></a>
                     } @else {
                       {{ result.institution?.name || 'Zavod ni naveden' }}
                     }
@@ -395,12 +412,29 @@
                           [href]="result.university.website"
                           target="_blank"
                           rel="noopener noreferrer"
-                        >{{ result.university.name }}</a>
+                        >{{ result.university.name }} <span class="external-icon" aria-hidden="true">↗</span></a>
                       } @else {
                         {{ result.university.name }}
                       }
                     }
                   </p>
+                  @if (result.item.study_locations.length > 0) {
+                    <p class="programme-locations">
+                      <strong>Kraj izvajanja: </strong>
+                      @for (
+                        location of result.item.study_locations;
+                        track location;
+                        let last = $last
+                      ) {
+                        <a
+                          class="institution-link"
+                          [href]="googleMapsSearchUrl(location)"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >{{ location }} <span class="external-icon" aria-hidden="true">↗</span></a>@if (!last) {<span aria-hidden="true"> · </span>}
+                      }
+                    </p>
+                  }
                   @if (result.match; as match) {
                     @if (match.performers.length > 0) {
                       <div class="performer-matches" aria-label="Ujemanja med učitelji in predmeti">

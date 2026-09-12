@@ -80,7 +80,6 @@ interface AreaRule {
 export const ADVISOR_RECOMMENDATION_LIMIT = 50;
 const MAX_RECOMMENDATIONS_PER_INSTITUTION = 3;
 const COURSE_PROFILE_WEIGHT = 0.3;
-const LOCATION_MATCH_BOOST = 0.08;
 const LOCATION_QUESTION_ID = 'location';
 const LOCATION_ANYWHERE_OPTION_ID = 'location-anywhere';
 const courseProfileCache = new WeakMap<
@@ -380,7 +379,7 @@ export const advisorQuestions: AdvisorQuestion[] = [
   {
     id: LOCATION_QUESTION_ID,
     title: 'Kje v Sloveniji bi najraje študiral?',
-    description: 'Izberi največ tri območja. Če ti lokacija ni pomembna, izberi zadnjo možnost.',
+    description: 'Izberi največ tri območja, na katerih želiš študirati. Prikazali bomo le programe, ki se tam izvajajo.',
     allowMultiple: true,
     maxSelections: 3,
     exclusiveOptionIds: [LOCATION_ANYWHERE_OPTION_ID],
@@ -412,7 +411,16 @@ export function recommendStudyProgrammes(
   const ranked = registry.study_programmes
     .filter((programme) =>
       programme.valid
-      && (programme.cycle.code === 'I.' || programme.type.short_name === 'EMAG'),
+      && (programme.cycle.code === 'I.' || programme.type.short_name === 'EMAG')
+      && (
+        preferredLocationIds.length === 0
+        || preferredLocationIds.some((locationId) =>
+          programmeMatchesLocation(
+            programme,
+            institutions.get(programme.institution_id),
+            locationId,
+          ))
+      )
     )
     .map((programme) => {
       const institution = institutions.get(programme.institution_id);
@@ -434,11 +442,7 @@ export function recommendStudyProgrammes(
         : programmeSimilarity;
       const locationMatch = preferredLocationIds.length > 0
         && preferredLocationIds.some((locationId) =>
-          institutionMatchesLocation(institution, locationId));
-      const adjustedSimilarity = Math.min(
-        1,
-        similarity + (locationMatch ? LOCATION_MATCH_BOOST : 0),
-      );
+          programmeMatchesLocation(programme, institution, locationId));
       const recommendationTraits = hasCourseProfile
         ? blendTraitProfiles(
           profile.traits,
@@ -460,7 +464,7 @@ export function recommendStudyProgrammes(
 
       return {
         result: { item: programme, institution, university },
-        matchPercent: Math.round(adjustedSimilarity * 100),
+        matchPercent: Math.round(similarity * 100),
         areas: (areas.length > 0 ? areas : profile.areas).slice(0, 2),
         reasons,
         matchingCourses: bestMatchingCourses(userTraits, courseProfile.evidence),
@@ -616,6 +620,25 @@ export function institutionMatchesLocation(
     const normalizedLocation = normalizeSearchText(location);
     return rule.keywords.some((keyword) => normalizedLocation.includes(keyword));
   });
+}
+
+export function programmeMatchesLocation(
+  programme: StudyProgramme,
+  institution: Institution | undefined,
+  locationOptionId: string,
+): boolean {
+  const rule = locationRules.find((candidate) =>
+    candidate.optionId === locationOptionId);
+  if (!rule) return false;
+
+  if (Array.isArray(programme.study_locations)) {
+    return programme.study_locations.some((location) => {
+      const normalizedLocation = normalizeSearchText(location);
+      return rule.keywords.some((keyword) => normalizedLocation.includes(keyword));
+    });
+  }
+
+  return institutionMatchesLocation(institution, locationOptionId);
 }
 
 function selectedPreferredLocationIds(answers: AdvisorAnswers): string[] {

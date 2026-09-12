@@ -148,12 +148,25 @@ odstranjevanje podvojenih in neveljavnih odgovorov, omejitve števila izbir ter
 povprečenje lastnosti odgovorov istega vprašanja.
 
 Lokacijski testi preverjajo izključujoče vedenje možnosti »Lokacija mi ni
-pomembna« ter pribitek, zaradi katerega se sicer enakovreden program na izbranem
-območju uvrsti višje. Lokacija je mehka preferenca in programov iz drugih delov
-Slovenije ne odstrani.
+pomembna« in izločitev programov zunaj izbranih območij. Ujemanje uporablja
+kraj izvajanja posameznega programa, ne skupnega seznama lokacij njegovega
+zavoda.
 
-Vsaka kartica priporočila poleg imena programa prikaže izvajalsko fakulteto
-oziroma zavod in, kadar je na voljo, tudi pripadajočo univerzo.
+Za vsako od sedmih območij je dodan še samostojen scenarij z eno samo
+lokacijsko izbiro. Vsak scenarij preveri več značilnih krajev in zavrne kraj iz
+drugega območja. Nato na dejanskem registru preveri, da je vseh prvih deset
+priporočil izvedenih na izbranem območju in da vsebujejo razlago lokacijskega
+ujemanja. Ista območja se preverijo tudi s popolnoma izpolnjenim vsebinskim
+profilom, pri katerem morajo biti vsi vrnjeni programi izvedeni na izbranem
+območju. Poseben regresijski primer preverja program »Upravljanje z okoljem« na
+Fakulteti za poslovne in upravne vede: čeprav ima zavod dejavnost tudi v
+Ljubljani, se ta program izvaja v Novem mestu in zato ne sme ustrezati izbiri
+osrednje Slovenije.
+
+Vsaka kartica priporočila in splošnega iskalnega zadetka poleg imena programa
+prikaže izvajalsko fakulteto oziroma zavod, kadar je na voljo tudi pripadajočo
+univerzo, ter kraje izvajanja konkretnega programa. Povezava kraja odpre
+pravilno URL-kodirano iskanje v Google Maps v novem zavihku.
 Priporočila so razdeljena na strani po 10 kartic. Testi preverjajo privzeto
 omejitev 50 rezultatov, velikost strani in pravilno nadaljevanje na naslednji
 strani.

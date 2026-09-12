@@ -36,6 +36,7 @@ export interface StudyProgramme {
   name_en: string | null;
   institution_id: string;
   university_id: string | null;
+  study_locations: string[];
   type: {
     code: number;
     name: string;

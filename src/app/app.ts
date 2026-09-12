@@ -9,6 +9,7 @@ import {
   signal,
 } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
+import { googleMapsSearchUrl } from './map-links';
 import {
   ProgrammePerformerSearchRegistry,
   ProgrammeTeacher,
@@ -67,6 +68,7 @@ export class App {
   readonly memberInstitutionId = signal('all');
   readonly includeInvalid = signal(false);
   readonly resultLimit = 60;
+  readonly googleMapsSearchUrl = googleMapsSearchUrl;
   readonly visibleResultLimit = signal(this.resultLimit);
   readonly teacherPageSize = 20;
   readonly expandedProgrammeId = signal<string | null>(null);
