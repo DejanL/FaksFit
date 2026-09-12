@@ -3,12 +3,16 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import type { ProgrammePerformerSearchRegistry, Registry } from './models';
 import {
+  ADVISOR_RECOMMENDATION_LIMIT,
   type AdvisorAnswers,
   advisorQuestions,
   buildUserTraits,
   normalizeAdvisorAnswers,
+  paginateAdvisorRecommendations,
   recommendStudyProgrammes,
 } from './study-advisor';
+
+const PRIMARY_RECOMMENDATION_SAMPLE_SIZE = 10;
 
 interface AdvisorScenario {
   name: string;
@@ -205,8 +209,12 @@ describe.each(scenarios)('priporočila za profil: $name', (scenario) => {
     ).toBe(true);
   });
 
-  it(`večino priporočil uvrsti v področje »${scenario.expectedArea}«`, () => {
-    const areaMatches = recommendations.filter((recommendation) =>
+  it(`med prvimi ${PRIMARY_RECOMMENDATION_SAMPLE_SIZE} doseže zahtevano zastopanost področja »${scenario.expectedArea}«`, () => {
+    const leadingRecommendations = recommendations.slice(
+      0,
+      PRIMARY_RECOMMENDATION_SAMPLE_SIZE,
+    );
+    const areaMatches = leadingRecommendations.filter((recommendation) =>
       recommendation.areas.includes(scenario.expectedArea));
 
     expect(areaMatches.length).toBeGreaterThanOrEqual(scenario.minimumAreaMatches);
@@ -229,6 +237,33 @@ describe.each(scenarios)('priporočila za profil: $name', (scenario) => {
         ))).toBe(true);
     });
   }
+});
+
+describe('obseg in strani priporočil', () => {
+  const recommendations = recommendStudyProgrammes(
+    registry,
+    scenarios[0].answers,
+    performerRegistry,
+  );
+
+  it('privzeto vrne največ 50 najbolje ocenjenih programov', () => {
+    expect(recommendations).toHaveLength(ADVISOR_RECOMMENDATION_LIMIT);
+    expect(ADVISOR_RECOMMENDATION_LIMIT).toBe(50);
+  });
+
+  it('rezultate razdeli na strani po 10 brez prekrivanja', () => {
+    const firstPage = paginateAdvisorRecommendations(recommendations, 0, 10);
+    const secondPage = paginateAdvisorRecommendations(recommendations, 1, 10);
+    const lastPage = paginateAdvisorRecommendations(recommendations, 4, 10);
+    const pageAfterLast = paginateAdvisorRecommendations(recommendations, 5, 10);
+
+    expect(firstPage).toHaveLength(10);
+    expect(secondPage).toHaveLength(10);
+    expect(lastPage).toHaveLength(10);
+    expect(pageAfterLast).toHaveLength(0);
+    expect(secondPage[0]).toBe(recommendations[10]);
+    expect(new Set([...firstPage, ...secondPage]).size).toBe(20);
+  });
 });
 
 describe('fuzzy ujemanje predmetov v priporočilih', () => {

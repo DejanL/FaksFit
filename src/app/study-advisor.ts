@@ -76,7 +76,7 @@ interface AreaRule {
   traits: TraitScores;
 }
 
-const DEFAULT_RECOMMENDATION_LIMIT = 12;
+export const ADVISOR_RECOMMENDATION_LIMIT = 50;
 const MAX_RECOMMENDATIONS_PER_INSTITUTION = 3;
 const COURSE_PROFILE_WEIGHT = 0.3;
 const courseProfileCache = new WeakMap<
@@ -348,7 +348,7 @@ export function recommendStudyProgrammes(
   registry: Registry,
   answers: AdvisorAnswers,
   performerRegistry?: ProgrammePerformerSearchRegistry | null,
-  limit = DEFAULT_RECOMMENDATION_LIMIT,
+  limit = ADVISOR_RECOMMENDATION_LIMIT,
 ): AdvisorRecommendation[] {
   const userTraits = buildUserTraits(answers);
   const institutions = new Map<string, Institution>(
@@ -439,6 +439,17 @@ export function recommendStudyProgrammes(
   }
 
   return recommendations;
+}
+
+export function paginateAdvisorRecommendations(
+  recommendations: AdvisorRecommendation[],
+  pageIndex: number,
+  pageSize: number,
+): AdvisorRecommendation[] {
+  const normalizedPageSize = Math.max(1, Math.floor(pageSize));
+  const normalizedPageIndex = Math.max(0, Math.floor(pageIndex));
+  const start = normalizedPageIndex * normalizedPageSize;
+  return recommendations.slice(start, start + normalizedPageSize);
 }
 
 function option(

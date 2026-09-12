@@ -3,7 +3,8 @@
 Scenariji uporabljajo točna besedila odgovorov iz vprašalnika. Avtomatizirani
 testi so v `src/app/study-advisor.spec.ts` in jih zažene ukaz `npm test`.
 Pričakovanja uporabljajo razpon uvrstitve, ker se lahko natančen vrstni red ob
-osvežitvi podatkov NAKVIS nekoliko spremeni.
+osvežitvi podatkov NAKVIS nekoliko spremeni. Področne zahteve se preverjajo med
+prvimi 10 priporočili, čeprav sistem vrne do 50 rezultatov.
 
 Vprašanja 1, 2, 3 in 7 omogočajo več odgovorov. Pri vprašanjih 1, 3 in 7 je
 mogoče izbrati največ dve možnosti, pri vprašanju 2 pa največ tri. V spodnjih
@@ -24,7 +25,7 @@ ohranijo primerljivo težo. Pri vsakem vprašanju uporabnik izbiro potrdi z gumb
 8. Razvijati nove tehnologije in rešitve
 
 Pričakovanje: program »Računalništvo in informatika« ali »Računalništvo in
-informacijske tehnologije« je med prvimi petimi, najmanj osem od dvanajstih
+informacijske tehnologije« je med prvimi petimi, najmanj osem od prvih desetih
 rezultatov pa spada v področje računalništva in tehnike.
 
 ## Pravo
@@ -140,3 +141,6 @@ povprečenje lastnosti odgovorov istega vprašanja.
 
 Vsaka kartica priporočila poleg imena programa prikaže izvajalsko fakulteto
 oziroma zavod in, kadar je na voljo, tudi pripadajočo univerzo.
+Priporočila so razdeljena na strani po 10 kartic. Testi preverjajo privzeto
+omejitev 50 rezultatov, velikost strani in pravilno nadaljevanje na naslednji
+strani.

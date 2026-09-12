@@ -29,6 +29,7 @@ import {
   AdvisorRecommendation,
   advisorQuestions,
   normalizeAdvisorAnswers,
+  paginateAdvisorRecommendations,
   recommendStudyProgrammes,
 } from './study-advisor';
 
@@ -78,6 +79,8 @@ export class App {
   readonly advisorStep = signal(0);
   readonly advisorAnswers = signal<AdvisorAnswers>({});
   readonly advisorFinished = signal(false);
+  readonly advisorRecommendationPageSize = 10;
+  readonly advisorRecommendationPage = signal(0);
 
   readonly advisorHasProgress = computed(() =>
     Object.keys(this.advisorAnswers()).length > 0,
@@ -101,6 +104,40 @@ export class App {
       )
       : [];
   });
+
+  readonly advisorRecommendationPageCount = computed(() =>
+    Math.ceil(
+      this.advisorRecommendations().length / this.advisorRecommendationPageSize,
+    ),
+  );
+
+  readonly advisorRecommendationPages = computed(() =>
+    Array.from(
+      { length: this.advisorRecommendationPageCount() },
+      (_, pageIndex) => pageIndex,
+    ),
+  );
+
+  readonly visibleAdvisorRecommendations = computed(() => {
+    return paginateAdvisorRecommendations(
+      this.advisorRecommendations(),
+      this.advisorRecommendationPage(),
+      this.advisorRecommendationPageSize,
+    );
+  });
+
+  readonly advisorRecommendationRangeStart = computed(() =>
+    this.advisorRecommendations().length > 0
+      ? this.advisorRecommendationPage() * this.advisorRecommendationPageSize + 1
+      : 0,
+  );
+
+  readonly advisorRecommendationRangeEnd = computed(() =>
+    Math.min(
+      (this.advisorRecommendationPage() + 1) * this.advisorRecommendationPageSize,
+      this.advisorRecommendations().length,
+    ),
+  );
 
   readonly hasActiveFilters = computed(() =>
     this.cycle() !== 'all'
@@ -274,6 +311,7 @@ export class App {
     this.advisorStep.set(0);
     this.advisorAnswers.set({});
     this.advisorFinished.set(false);
+    this.advisorRecommendationPage.set(0);
     this.clearStoredAdvisorState();
   }
 
@@ -345,6 +383,7 @@ export class App {
 
   private advanceAdvisor(): void {
     if (this.advisorStep() === this.advisorQuestions.length - 1) {
+      this.advisorRecommendationPage.set(0);
       this.advisorFinished.set(true);
       this.persistAdvisorState();
       return;
@@ -366,7 +405,20 @@ export class App {
     this.advisorStep.set(0);
     this.advisorAnswers.set({});
     this.advisorFinished.set(false);
+    this.advisorRecommendationPage.set(0);
     this.clearStoredAdvisorState();
+  }
+
+  showAdvisorRecommendationPage(pageIndex: number): void {
+    const lastPageIndex = Math.max(0, this.advisorRecommendationPageCount() - 1);
+    const nextPageIndex = Math.min(Math.max(pageIndex, 0), lastPageIndex);
+    if (nextPageIndex === this.advisorRecommendationPage()) return;
+
+    this.advisorRecommendationPage.set(nextPageIndex);
+    if (isPlatformBrowser(this.platformId)) {
+      document.getElementById('advisor-recommendation-list')
+        ?.scrollIntoView({ block: 'start' });
+    }
   }
 
   exploreAdvisorRecommendation(recommendation: AdvisorRecommendation): void {

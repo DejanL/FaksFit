@@ -126,13 +126,15 @@
       </div>
     } @else {
       <div class="advisor-panel">
-        <header class="advisor-header">
-          <div>
-            <p class="eyebrow">FaksFit svetovalec</p>
-            <h2 id="advisor-title">Poišči študij, ki ti ustreza</h2>
-          </div>
-          <button class="advisor-close" type="button" aria-label="Zapri vprašalnik" (click)="closeAdvisor()">×</button>
-        </header>
+        @if (!advisorFinished()) {
+          <header class="advisor-header">
+            <div>
+              <p class="eyebrow">FaksFit svetovalec</p>
+              <h2 id="advisor-title">Poišči študij, ki ti ustreza</h2>
+            </div>
+            <button class="advisor-close" type="button" aria-label="Zapri vprašalnik" (click)="closeAdvisor()">×</button>
+          </header>
+        }
 
         @if (!advisorFinished()) {
           @if (currentAdvisorQuestion(); as question) {
@@ -192,17 +194,20 @@
             <div class="advisor-results-heading">
               <div>
                 <p class="eyebrow">Tvoja priporočila</p>
-                <h3>Programi, vredni podrobnejšega ogleda</h3>
+                <h3 id="advisor-title">Programi, vredni podrobnejšega ogleda</h3>
                 <p>
                   Prikazujemo {{ advisorRecommendations().length }} najbolje ocenjenih in raznolikih
                   programov prve stopnje oziroma enovitih magistrskih programov.
                 </p>
               </div>
-              <button type="button" (click)="restartAdvisor()">Izbriši odgovore in začni znova</button>
+              <div class="advisor-results-actions">
+                <button type="button" (click)="restartAdvisor()">Izbriši odgovore in začni znova</button>
+                <button class="advisor-close" type="button" aria-label="Zapri priporočila" (click)="closeAdvisor()">×</button>
+              </div>
             </div>
 
-            <div class="advisor-recommendation-list">
-              @for (recommendation of advisorRecommendations(); track recommendation.result.item.id) {
+            <div id="advisor-recommendation-list" class="advisor-recommendation-list">
+              @for (recommendation of visibleAdvisorRecommendations(); track recommendation.result.item.id) {
                 <article class="advisor-recommendation">
                   <div class="advisor-score" [attr.aria-label]="recommendation.matchPercent + ' odstotkov ujemanja'">
                     <strong>{{ recommendation.matchPercent }} %</strong>
@@ -268,6 +273,36 @@
                 </article>
               }
             </div>
+
+            @if (advisorRecommendationPageCount() > 1) {
+              <nav class="advisor-pagination" aria-label="Strani priporočenih programov">
+                <button
+                  type="button"
+                  [disabled]="advisorRecommendationPage() === 0"
+                  (click)="showAdvisorRecommendationPage(advisorRecommendationPage() - 1)"
+                >← Prejšnja</button>
+                <div class="advisor-pagination-pages">
+                  @for (pageIndex of advisorRecommendationPages(); track pageIndex) {
+                    <button
+                      type="button"
+                      [class.current]="advisorRecommendationPage() === pageIndex"
+                      [attr.aria-current]="advisorRecommendationPage() === pageIndex ? 'page' : null"
+                      [attr.aria-label]="'Stran ' + (pageIndex + 1)"
+                      (click)="showAdvisorRecommendationPage(pageIndex)"
+                    >{{ pageIndex + 1 }}</button>
+                  }
+                </div>
+                <button
+                  type="button"
+                  [disabled]="advisorRecommendationPage() === advisorRecommendationPageCount() - 1"
+                  (click)="showAdvisorRecommendationPage(advisorRecommendationPage() + 1)"
+                >Naslednja →</button>
+              </nav>
+              <p class="advisor-pagination-summary" aria-live="polite">
+                Prikazani programi {{ advisorRecommendationRangeStart() }}–{{ advisorRecommendationRangeEnd() }}
+                od {{ advisorRecommendations().length }}.
+              </p>
+            }
 
             <p class="advisor-disclaimer">
               Rezultat je informativna pomoč na podlagi imena in vrste programa, ne dokončna poklicna usmeritev. Pred odločitvijo preveri predmetnik in vpisne pogoje.

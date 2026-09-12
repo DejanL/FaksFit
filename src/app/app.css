@@ -239,7 +239,7 @@ select {
 }
 
 .advisor-teaser-actions > button,
-.advisor-results-heading > button {
+.advisor-results-actions > button:not(.advisor-close) {
   padding: 10px 14px;
   color: #fff;
   border: 1px solid #24715d;
@@ -249,7 +249,7 @@ select {
   cursor: pointer;
 }
 .advisor-teaser-actions > button:hover,
-.advisor-results-heading > button:hover { border-color: #195849; background: #195849; }
+.advisor-results-actions > button:not(.advisor-close):hover { border-color: #195849; background: #195849; }
 .advisor-teaser-actions > button:disabled { opacity: .5; cursor: not-allowed; }
 .advisor-teaser-actions { display: grid; gap: 7px; min-width: 190px; }
 .advisor-teaser-actions > button.secondary {
@@ -386,7 +386,7 @@ select {
 }
 .advisor-navigation button.primary:hover:not(:disabled) { background: #195849; }
 
-.advisor-results { padding-top: 24px; }
+.advisor-results { padding-top: 0; }
 .advisor-results-heading {
   display: flex;
   align-items: end;
@@ -396,6 +396,7 @@ select {
 }
 .advisor-results-heading h3 { margin: 0; color: #20342e; font-size: 1.45rem; }
 .advisor-results-heading div > p:last-child { margin: 6px 0 0; color: #71817c; font-size: .84rem; }
+.advisor-results-actions { display: flex; align-items: center; gap: 8px; }
 .advisor-recommendation-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .advisor-recommendation {
   display: grid;
@@ -454,6 +455,36 @@ select {
   cursor: pointer;
 }
 .advisor-recommendation-actions a { color: #fff; border-color: #24715d; background: #24715d; }
+.advisor-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 22px;
+}
+.advisor-pagination-pages { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
+.advisor-pagination button {
+  min-width: 36px;
+  min-height: 36px;
+  padding: 7px 10px;
+  color: #315f52;
+  border: 1px solid #cfddd7;
+  border-radius: 8px;
+  background: #fff;
+  font: inherit;
+  font-size: .75rem;
+  font-weight: 750;
+  cursor: pointer;
+}
+.advisor-pagination button:hover:not(:disabled) { border-color: #88aa9d; background: #edf5f1; }
+.advisor-pagination button.current { color: #fff; border-color: #24715d; background: #24715d; }
+.advisor-pagination button:disabled { opacity: .38; cursor: not-allowed; }
+.advisor-pagination-summary {
+  margin: 8px 0 0;
+  color: #71817c;
+  font-size: .72rem;
+  text-align: center;
+}
 .advisor-disclaimer {
   margin: 18px 0 0;
   padding: 12px 14px;
@@ -783,6 +814,8 @@ footer p { margin: 0; }
   .advisor-navigation span { display: none; }
   .advisor-recommendation { grid-template-columns: 52px 1fr; padding: 14px; }
   .advisor-score { width: 52px; min-height: 56px; }
+  .advisor-pagination { flex-wrap: wrap; }
+  .advisor-pagination-pages { order: 3; width: 100%; }
   .results { padding-top: 38px; }
   .results-heading { align-items: start; flex-direction: column; }
   .result-card { padding: 17px; gap: 13px; }

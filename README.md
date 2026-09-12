@@ -38,6 +38,9 @@ naslednjem obisku samodejno pretvori v novi zapis. Pri vsakem vprašanju je treb
 izbiro potrditi z gumbom »Naprej«, ki je do izbire odgovora onemogočen.
 Pri priporočenih programih sta prikazana izvajalska fakulteta oziroma zavod in
 pripadajoča univerza, kadar je navedena v viru podatkov.
+Sistem vrne največ 50 najbolje ocenjenih in raznolikih programov. Rezultati so
+razdeljeni na strani po 10 programov z oštevilčeno navigacijo ter gumboma za
+prejšnjo in naslednjo stran.
 
 Za lokalni preizkus različice z GitHub Pages podpotjo uporabi:
 
