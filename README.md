@@ -36,6 +36,8 @@ več izbir posameznemu vprašanju ne da nesorazmerno velike teže. Odgovori se
 hranijo samo v lokalni shrambi brskalnika; stare enojne odgovore aplikacija ob
 naslednjem obisku samodejno pretvori v novi zapis. Pri vsakem vprašanju je treba
 izbiro potrditi z gumbom »Naprej«, ki je do izbire odgovora onemogočen.
+Pri priporočenih programih sta prikazana izvajalska fakulteta oziroma zavod in
+pripadajoča univerza, kadar je navedena v viru podatkov.
 
 Za lokalni preizkus različice z GitHub Pages podpotjo uporabi:
 

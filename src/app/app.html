@@ -216,7 +216,32 @@
                     </div>
                     <h4>{{ recommendation.result.item.name }}</h4>
                     <p class="advisor-institution">
-                      {{ recommendation.result.institution?.name || 'Zavod ni naveden' }}
+                      @if (recommendation.result.institution?.website) {
+                        <a
+                          class="institution-link"
+                          [href]="recommendation.result.institution.website"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >{{ recommendation.result.institution.name }}</a>
+                      } @else {
+                        {{ recommendation.result.institution?.name || 'Zavod ni naveden' }}
+                      }
+                      @if (
+                        recommendation.result.university
+                        && recommendation.result.university.id !== recommendation.result.institution?.id
+                      ) {
+                        <span class="institution-separator" aria-hidden="true">·</span>
+                        @if (recommendation.result.university.website) {
+                          <a
+                            class="institution-link"
+                            [href]="recommendation.result.university.website"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >{{ recommendation.result.university.name }}</a>
+                        } @else {
+                          {{ recommendation.result.university.name }}
+                        }
+                      }
                     </p>
                     <ul>
                       @for (reason of recommendation.reasons; track reason) {

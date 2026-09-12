@@ -137,3 +137,6 @@ preveri, da manjša tipkarska napaka v imenu predmeta še vedno sproži fuzzy
 ujemanje. Ločeni testi večizbire preverjajo še pretvorbo starega zapisa,
 odstranjevanje podvojenih in neveljavnih odgovorov, omejitve števila izbir ter
 povprečenje lastnosti odgovorov istega vprašanja.
+
+Vsaka kartica priporočila poleg imena programa prikaže izvajalsko fakulteto
+oziroma zavod in, kadar je na voljo, tudi pripadajočo univerzo.

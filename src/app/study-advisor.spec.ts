@@ -303,6 +303,27 @@ describe('več odgovorov pri posameznem vprašanju', () => {
   });
 });
 
+describe('izvajalci priporočenega programa', () => {
+  it('rezultatu doda fakulteto in pripadajočo univerzo', () => {
+    const syntheticRegistry = registryWithSingleProgramme();
+    syntheticRegistry.institutions[0].parent_university_id = 'university';
+    syntheticRegistry.institutions.push({
+      ...syntheticRegistry.institutions[0],
+      id: 'university',
+      name: 'Testna univerza',
+      parent_university_id: null,
+    });
+    syntheticRegistry.study_programmes[0].university_id = 'university';
+
+    const [recommendation] = recommendStudyProgrammes(syntheticRegistry, {
+      challenge: ['build-app'],
+    });
+
+    expect(recommendation?.result.institution?.name).toBe('Testni zavod');
+    expect(recommendation?.result.university?.name).toBe('Testna univerza');
+  });
+});
+
 function answersByLabels(
   labels: Record<string, string | string[]>,
 ): AdvisorAnswers {
