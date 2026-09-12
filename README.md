@@ -42,6 +42,11 @@ Sistem vrne največ 50 najbolje ocenjenih in raznolikih programov. Rezultati so
 razdeljeni na strani po 10 programov z oštevilčeno navigacijo ter gumboma za
 prejšnjo in naslednjo stran.
 
+Deveto vprašanje omogoča izbiro največ treh želenih območij študija. Možnost
+»Lokacija mi ni pomembna« je izključujoča. Program na izbranem območju dobi pri
+razvrščanju zmeren pribitek, programi drugod pa zato niso izločeni. Kraji
+izvajanja so pridobljeni iz uradnih podatkov NAKVIS na ravni zavoda.
+
 Za lokalni preizkus različice z GitHub Pages podpotjo uporabi:
 
 ```bash
@@ -70,6 +75,13 @@ npm run build-search-data
 ```
 
 Če NAKVIS za posamezen program ne ponuja seznama učiteljev, je program v drugi datoteki označen z `available: false`.
+
+Samo kraje izvajanja v glavnem registru lahko brez ponovnega prenosa učiteljev
+osvežiš z:
+
+```bash
+npm run refresh-locations
+```
 
 ## Objava na GitHub Pages
 

@@ -1,24 +1,29 @@
 #!/usr/bin/env node
 
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { createPerformerSearchRegistry } from "./performer-search-data.mjs";
 
 const API_BASE_URL = "https://api.portal.nakvis.si/api/v1";
 const PORTAL_URL = "https://portal.nakvis.si";
+const LOCATIONS_ONLY = process.argv.includes("--locations-only");
+const positionalArguments = process.argv.slice(2).filter(
+  (argument) => !argument.startsWith("--"),
+);
 const OUTPUT_PATH = resolve(
-  process.argv[2] ?? "data/slovenia-higher-education.json",
+  positionalArguments[0] ?? "data/slovenia-higher-education.json",
 );
 const TEACHERS_OUTPUT_PATH = resolve(
-  process.argv[3] ??
+  positionalArguments[1] ??
     resolve(dirname(OUTPUT_PATH), "programme-teachers.json"),
 );
 const PERFORMER_SEARCH_OUTPUT_PATH = resolve(
-  process.argv[4] ??
+  positionalArguments[2] ??
     resolve(dirname(OUTPUT_PATH), "programme-performer-search.json"),
 );
 const PAGE_SIZE = 100;
 const TEACHER_FETCH_CONCURRENCY = 8;
+const INSTITUTION_FETCH_CONCURRENCY = 4;
 
 const programmeTypes = {
   0: { name: "Neznano", name_en: "Unknown", short_name: null },
@@ -219,11 +224,56 @@ async function fetchProgrammeTeacherRecords(programmes) {
   );
 }
 
+function normalizeStudyLocations(institution) {
+  const locations = (institution.kraji_izvajanja ?? [])
+    .map((location) => location.naziv_enote || location.posta)
+    .filter(Boolean)
+    .map((location) => location.trim());
+  const registeredLocation = institution.naslov?.posta?.trim();
+  if (locations.length === 0 && registeredLocation) locations.push(registeredLocation);
+  return [...new Set(locations)].sort((left, right) =>
+    left.localeCompare(right, "sl"));
+}
+
+async function fetchInstitutionStudyLocations(institutions) {
+  let completedCount = 0;
+  const entries = await mapWithConcurrency(
+    institutions,
+    INSTITUTION_FETCH_CONCURRENCY,
+    async (institution) => {
+      try {
+        const details = await fetchJson(
+          `/higher-education-institutions/${institution.id ?? institution._id}`,
+        );
+        return [institution.id ?? institution._id, normalizeStudyLocations(details)];
+      } catch (error) {
+        console.warn(
+          `Location data unavailable for institution ${institution.id ?? institution._id}: ${error.message}`,
+        );
+        return [institution.id ?? institution._id, institution.study_locations ?? []];
+      } finally {
+        completedCount += 1;
+        if (
+          completedCount % 25 === 0
+          || completedCount === institutions.length
+        ) {
+          console.log(
+            `Fetched location data for ${completedCount}/${institutions.length} institutions`,
+          );
+        }
+      }
+    },
+  );
+
+  return new Map(entries);
+}
+
 function normalizeInstitution(
   institution,
   hierarchyById,
   parentUniversityById,
   programmesByInstitutionId,
+  studyLocationsByInstitutionId,
 ) {
   const hierarchyRecord = hierarchyById.get(institution._id);
   const programmeIds = programmesByInstitutionId.get(institution._id) ?? [];
@@ -248,6 +298,7 @@ function normalizeInstitution(
     study_programme_ids: programmeIds.map((programme) => programme.id),
     study_programme_count: programmeIds.length,
     valid_study_programme_count: validProgrammeIds.length,
+    study_locations: studyLocationsByInstitutionId.get(institution._id) ?? [],
   };
 }
 
@@ -305,6 +356,21 @@ function normalizeProgramme(programme, institutionId, universityId) {
 }
 
 async function main() {
+  if (LOCATIONS_ONLY) {
+    const registry = JSON.parse(await readFile(OUTPUT_PATH, "utf8"));
+    const studyLocationsByInstitutionId = await fetchInstitutionStudyLocations(
+      registry.institutions,
+    );
+    registry.institutions = registry.institutions.map((institution) => ({
+      ...institution,
+      study_locations: studyLocationsByInstitutionId.get(institution.id) ?? [],
+    }));
+    registry.metadata.study_locations_generated_at = new Date().toISOString();
+    await writeFile(OUTPUT_PATH, `${JSON.stringify(registry, null, 2)}\n`, "utf8");
+    console.log(`Updated institution study locations in ${OUTPUT_PATH}`);
+    return;
+  }
+
   const [rawInstitutions, rawProgrammes, hierarchy] = await Promise.all([
     fetchAllPages("higher-education-institutions", "naziv"),
     fetchAllPages("study-programmes", "ime"),
@@ -352,12 +418,17 @@ async function main() {
     new Map(),
   );
 
+  const studyLocationsByInstitutionId = await fetchInstitutionStudyLocations(
+    rawInstitutions,
+  );
+
   const institutions = rawInstitutions.map((institution) =>
     normalizeInstitution(
       institution,
       hierarchyById,
       parentUniversityById,
       programmesByInstitutionId,
+      studyLocationsByInstitutionId,
     ),
   );
 
@@ -378,6 +449,7 @@ async function main() {
       description:
         "Normaliziran celoten javni register NAKVIS. Vključeni so veljavni in neveljavni zapisi; za aktualni prikaz filtriraj po valid=true.",
       generated_at: generatedAt,
+      study_locations_generated_at: generatedAt,
       language: "sl",
       country: "SI",
       scope: {

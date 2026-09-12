@@ -42,6 +42,7 @@ export interface AdvisorQuestion {
   options: AdvisorOption[];
   allowMultiple?: boolean;
   maxSelections?: number;
+  exclusiveOptionIds?: string[];
 }
 
 export type AdvisorAnswers = Record<string, string[]>;
@@ -79,10 +80,44 @@ interface AreaRule {
 export const ADVISOR_RECOMMENDATION_LIMIT = 50;
 const MAX_RECOMMENDATIONS_PER_INSTITUTION = 3;
 const COURSE_PROFILE_WEIGHT = 0.3;
+const LOCATION_MATCH_BOOST = 0.08;
+const LOCATION_QUESTION_ID = 'location';
+const LOCATION_ANYWHERE_OPTION_ID = 'location-anywhere';
 const courseProfileCache = new WeakMap<
   ProgrammePerformerSearchRegistry,
   Map<string, CourseProfile>
 >();
+
+const locationRules: Array<{ optionId: string; keywords: string[] }> = [
+  {
+    optionId: 'location-central',
+    keywords: ['ljubljana', 'domzale', 'trzin', 'logatec', 'trbovlje', 'grosuplje', 'vrhnika', 'godovic'],
+  },
+  {
+    optionId: 'location-northeast',
+    keywords: ['maribor', 'hoce', 'ptuj', 'murska sobota', 'slovenska bistrica', 'lendava', 'ljutomer', 'radenci', 'rakican'],
+  },
+  {
+    optionId: 'location-savinjska-koroska',
+    keywords: ['celje', 'velenje', 'rogaska slatina', 'slovenj gradec', 'slovenske konjice', 'ravne na koroskem', 'zalec'],
+  },
+  {
+    optionId: 'location-gorenjska',
+    keywords: ['kranj', 'bled', 'jesenice', 'trzic', 'radovljica', 'skofja loka'],
+  },
+  {
+    optionId: 'location-coast-karst',
+    keywords: ['koper', 'izola', 'portoroz', 'piran', 'sezana', 'dutovlje', 'postojna'],
+  },
+  {
+    optionId: 'location-goriska',
+    keywords: ['nova gorica', 'sempeter pri gorici', 'sempeter pri novi gorici', 'ajdovscina', 'vipava'],
+  },
+  {
+    optionId: 'location-southeast-posavje',
+    keywords: ['novo mesto', 'krsko', 'brezice', 'crnomelj', 'trebnje', 'kocevje'],
+  },
+];
 
 const reasonByTrait: Record<AdvisorTrait, string> = {
   technology: 'zanimata te tehnologija in digitalni svet',
@@ -342,6 +377,24 @@ export const advisorQuestions: AdvisorQuestion[] = [
       option('create', 'Ustvarjati kulturo, podobe ali izkušnje', 'Izraziti ideje na svoj način.', '✦', { arts: 4, creative: 4 }),
     ],
   },
+  {
+    id: LOCATION_QUESTION_ID,
+    title: 'Kje v Sloveniji bi najraje študiral?',
+    description: 'Izberi največ tri območja. Če ti lokacija ni pomembna, izberi zadnjo možnost.',
+    allowMultiple: true,
+    maxSelections: 3,
+    exclusiveOptionIds: [LOCATION_ANYWHERE_OPTION_ID],
+    options: [
+      option('location-central', 'Ljubljana in osrednja Slovenija', 'Ljubljana z bližnjo okolico.', '◎', {}),
+      option('location-northeast', 'Maribor in severovzhodna Slovenija', 'Maribor, Ptuj, Murska Sobota in okolica.', '↗', {}),
+      option('location-savinjska-koroska', 'Savinjska in Koroška', 'Celje, Velenje, Rogaška Slatina, Slovenj Gradec in okolica.', '◇', {}),
+      option('location-gorenjska', 'Gorenjska', 'Kranj, Bled, Jesenice in okolica.', '△', {}),
+      option('location-coast-karst', 'Obala in Kras', 'Koper, Izola, Portorož, Sežana in okolica.', '≈', {}),
+      option('location-goriska', 'Goriška', 'Nova Gorica, Ajdovščina, Vipava in okolica.', '◁', {}),
+      option('location-southeast-posavje', 'Dolenjska in Posavje', 'Novo mesto, Krško, Brežice in okolica.', '▽', {}),
+      option(LOCATION_ANYWHERE_OPTION_ID, 'Lokacija mi ni pomembna', 'Pri razvrščanju naj ima prednost vsebinsko ujemanje.', '○', {}),
+    ],
+  },
 ];
 
 export function recommendStudyProgrammes(
@@ -351,6 +404,7 @@ export function recommendStudyProgrammes(
   limit = ADVISOR_RECOMMENDATION_LIMIT,
 ): AdvisorRecommendation[] {
   const userTraits = buildUserTraits(answers);
+  const preferredLocationIds = selectedPreferredLocationIds(answers);
   const institutions = new Map<string, Institution>(
     registry.institutions.map((institution) => [institution.id, institution]),
   );
@@ -378,6 +432,13 @@ export function recommendStudyProgrammes(
         ? programmeSimilarity * (1 - COURSE_PROFILE_WEIGHT)
           + courseSimilarity * COURSE_PROFILE_WEIGHT
         : programmeSimilarity;
+      const locationMatch = preferredLocationIds.length > 0
+        && preferredLocationIds.some((locationId) =>
+          institutionMatchesLocation(institution, locationId));
+      const adjustedSimilarity = Math.min(
+        1,
+        similarity + (locationMatch ? LOCATION_MATCH_BOOST : 0),
+      );
       const recommendationTraits = hasCourseProfile
         ? blendTraitProfiles(
           profile.traits,
@@ -385,7 +446,11 @@ export function recommendStudyProgrammes(
           COURSE_PROFILE_WEIGHT,
         )
         : profile.traits;
-      const reasons = bestReasons(userTraits, recommendationTraits);
+      const traitReasons = bestReasons(userTraits, recommendationTraits);
+      const reasons = locationMatch
+        ? ['izvaja se na enem od območij, kjer želiš študirati', ...traitReasons]
+          .slice(0, 3)
+        : traitReasons;
       const programmeAreas = profile.areas.filter((area) =>
         area !== 'Interdisciplinarno področje');
       const areas = [...new Set([
@@ -395,7 +460,7 @@ export function recommendStudyProgrammes(
 
       return {
         result: { item: programme, institution, university },
-        matchPercent: Math.round(similarity * 100),
+        matchPercent: Math.round(adjustedSimilarity * 100),
         areas: (areas.length > 0 ? areas : profile.areas).slice(0, 2),
         reasons,
         matchingCourses: bestMatchingCourses(userTraits, courseProfile.evidence),
@@ -479,15 +544,46 @@ export function normalizeAdvisorAnswers(answers: unknown): AdvisorAnswers {
     const selectionLimit = question.allowMultiple
       ? Math.max(1, question.maxSelections ?? question.options.length)
       : 1;
-    const validSelections = [...new Set(
+    const uniqueValidSelections = [...new Set(
       candidates.filter((candidate): candidate is string =>
         typeof candidate === 'string' && validOptionIds.has(candidate)),
-    )].slice(0, selectionLimit);
+    )];
+    const exclusiveSelection = uniqueValidSelections.find((candidate) =>
+      question.exclusiveOptionIds?.includes(candidate));
+    const validSelections = exclusiveSelection
+      ? [exclusiveSelection]
+      : uniqueValidSelections.slice(0, selectionLimit);
 
     if (validSelections.length > 0) normalized[question.id] = validSelections;
   }
 
   return normalized;
+}
+
+export function toggleAdvisorAnswerSelection(
+  question: AdvisorQuestion,
+  currentSelections: string[],
+  optionId: string,
+): string[] {
+  if (!question.options.some((option) => option.id === optionId)) {
+    return currentSelections;
+  }
+  if (!question.allowMultiple) return [optionId];
+
+  const isSelected = currentSelections.includes(optionId);
+  if (isSelected) {
+    return currentSelections.filter((selection) => selection !== optionId);
+  }
+
+  const exclusiveOptionIds = question.exclusiveOptionIds ?? [];
+  if (exclusiveOptionIds.includes(optionId)) return [optionId];
+
+  const currentNonExclusiveSelections = currentSelections.filter((selection) =>
+    !exclusiveOptionIds.includes(selection));
+  const maxSelections = question.maxSelections ?? question.options.length;
+  return currentNonExclusiveSelections.length < maxSelections
+    ? [...currentNonExclusiveSelections, optionId]
+    : currentSelections;
 }
 
 export function buildUserTraits(answers: AdvisorAnswers): TraitScores {
@@ -506,6 +602,25 @@ export function buildUserTraits(answers: AdvisorAnswers): TraitScores {
   }
 
   return scores;
+}
+
+export function institutionMatchesLocation(
+  institution: Institution | undefined,
+  locationOptionId: string,
+): boolean {
+  const rule = locationRules.find((candidate) =>
+    candidate.optionId === locationOptionId);
+  if (!institution || !rule) return false;
+
+  return [...(institution.study_locations ?? []), institution.name].some((location) => {
+    const normalizedLocation = normalizeSearchText(location);
+    return rule.keywords.some((keyword) => normalizedLocation.includes(keyword));
+  });
+}
+
+function selectedPreferredLocationIds(answers: AdvisorAnswers): string[] {
+  const selections = normalizeAdvisorAnswers(answers)[LOCATION_QUESTION_ID] ?? [];
+  return selections.filter((selection) => selection !== LOCATION_ANYWHERE_OPTION_ID);
 }
 
 function buildProgrammeProfile(

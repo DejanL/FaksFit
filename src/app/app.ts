@@ -31,6 +31,7 @@ import {
   normalizeAdvisorAnswers,
   paginateAdvisorRecommendations,
   recommendStudyProgrammes,
+  toggleAdvisorAnswerSelection,
 } from './study-advisor';
 
 const ADVISOR_STORAGE_KEY = 'faksfit.study-advisor.v2';
@@ -331,13 +332,11 @@ export class App {
     if (question.allowMultiple) {
       this.advisorAnswers.update((answers) => {
         const currentSelections = answers[questionId] ?? [];
-        const isSelected = currentSelections.includes(optionId);
-        const maxSelections = question.maxSelections ?? question.options.length;
-        const nextSelections = isSelected
-          ? currentSelections.filter((selection) => selection !== optionId)
-          : currentSelections.length < maxSelections
-            ? [...currentSelections, optionId]
-            : currentSelections;
+        const nextSelections = toggleAdvisorAnswerSelection(
+          question,
+          currentSelections,
+          optionId,
+        );
 
         if (nextSelections.length > 0) {
           return { ...answers, [questionId]: nextSelections };
@@ -373,8 +372,13 @@ export class App {
       return false;
     }
 
+    const exclusiveOptionIds = question.exclusiveOptionIds ?? [];
+    if (exclusiveOptionIds.includes(optionId)) return false;
+
     const maxSelections = question.maxSelections ?? question.options.length;
-    return (this.advisorAnswers()[question.id]?.length ?? 0) >= maxSelections;
+    const selectedNonExclusiveCount = (this.advisorAnswers()[question.id] ?? [])
+      .filter((selection) => !exclusiveOptionIds.includes(selection)).length;
+    return selectedNonExclusiveCount >= maxSelections;
   }
 
   advisorSelectedCount(questionId: string): number {
@@ -596,11 +600,18 @@ export class App {
           this.advisorQuestions.length - 1,
         )
         : 0;
+      const firstUnansweredStep = this.advisorQuestions.findIndex((question) =>
+        !validAnswers[question.id]?.length);
+      const migratedFinishedStep = storedState.finished === true
+        && !allQuestionsAnswered
+        && firstUnansweredStep >= 0
+        ? firstUnansweredStep
+        : restoredStep;
 
       this.advisorAnswers.set(validAnswers);
       this.advisorStep.set(allQuestionsAnswered
         ? this.advisorQuestions.length - 1
-        : restoredStep);
+        : migratedFinishedStep);
       this.advisorFinished.set(storedState.finished === true && allQuestionsAnswered);
       if (storedState.version === 1) this.persistAdvisorState();
     } catch {

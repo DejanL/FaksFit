@@ -6,6 +6,7 @@ export interface Registry {
 
 export interface Metadata {
   generated_at: string;
+  study_locations_generated_at?: string;
   counts: {
     valid_institutions: number;
     valid_study_programmes: number;
@@ -22,6 +23,7 @@ export interface Institution {
   legal_form: string;
   website: string | null;
   parent_university_id: string | null;
+  study_locations: string[];
   valid: boolean;
   study_programme_count: number;
   valid_study_programme_count: number;

@@ -9,6 +9,7 @@
     "test": "vitest run",
     "test:advisor": "vitest run src/app/study-advisor.spec.ts --reporter=verbose",
     "refresh-data": "node scripts/fetch-nakvis-data.mjs",
+    "refresh-locations": "node scripts/fetch-nakvis-data.mjs --locations-only",
     "build-search-data": "node scripts/build-performer-search-data.mjs"
   },
   "dependencies": {

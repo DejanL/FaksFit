@@ -10,6 +10,7 @@ import {
   normalizeAdvisorAnswers,
   paginateAdvisorRecommendations,
   recommendStudyProgrammes,
+  toggleAdvisorAnswerSelection,
 } from './study-advisor';
 
 const PRIMARY_RECOMMENDATION_SAMPLE_SIZE = 10;
@@ -43,6 +44,7 @@ const scenarios: AdvisorScenario[] = [
       learning: 'S praktičnim preizkušanjem',
       environment: 'Računalnik, razvojna ekipa ali tehnološko podjetje',
       purpose: 'Razvijati nove tehnologije in rešitve',
+      location: 'Lokacija mi ni pomembna',
     }),
     expectedProgramme: /^(Računalništvo in informatika|Računalništvo in informacijske tehnologije)$/,
     expectedProgrammeLabel: 'računalniški ali informacijski program',
@@ -61,6 +63,7 @@ const scenarios: AdvisorScenario[] = [
       learning: 'S pogovorom in sodelovanjem',
       environment: 'Podjetje, ustanova ali projektna ekipa',
       purpose: 'Bolje razumeti svet, naravo ali družbo',
+      location: 'Lokacija mi ni pomembna',
     }),
     expectedProgramme: /^Pravo$/,
     expectedProgrammeLabel: 'program Pravo',
@@ -79,6 +82,7 @@ const scenarios: AdvisorScenario[] = [
       learning: 'Z mešanico teorije in prakse',
       environment: 'Šola, klinika ali svetovalno okolje',
       purpose: 'Pomagati ljudem pri zdravju ali razvoju',
+      location: 'Lokacija mi ni pomembna',
     }),
     expectedProgramme: /^(Medicina|Splošna medicina)$/,
     expectedProgrammeLabel: 'program Medicina ali Splošna medicina',
@@ -109,6 +113,7 @@ const scenarios: AdvisorScenario[] = [
         'Računalnik, razvojna ekipa ali tehnološko podjetje',
       ],
       purpose: 'Razvijati nove tehnologije in rešitve',
+      location: 'Lokacija mi ni pomembna',
     }),
     expectedProgramme: /^Arhitektura$/,
     expectedProgrammeLabel: 'program Arhitektura',
@@ -127,6 +132,7 @@ const scenarios: AdvisorScenario[] = [
       learning: 'Z mešanico teorije in prakse',
       environment: 'Podjetje, ustanova ali projektna ekipa',
       purpose: 'Voditi projekte in ustvarjati priložnosti',
+      location: 'Lokacija mi ni pomembna',
     }),
     expectedProgramme: /Ekonom|Poslov/,
     expectedProgrammeLabel: 'ekonomski ali poslovni program',
@@ -145,6 +151,7 @@ const scenarios: AdvisorScenario[] = [
       learning: 'S praktičnim preizkušanjem',
       environment: 'Studio, oder ali ustvarjalna delavnica',
       purpose: 'Povezovati ljudi, jezike in ideje',
+      location: 'Lokacija mi ni pomembna',
     }),
     expectedProgramme: /^Glasbena umetnost$/,
     expectedProgrammeLabel: 'program Glasbena umetnost',
@@ -163,6 +170,7 @@ const scenarios: AdvisorScenario[] = [
       learning: 'S praktičnim preizkušanjem',
       environment: 'Šola, klinika ali svetovalno okolje',
       purpose: 'Pomagati ljudem pri zdravju ali razvoju',
+      location: 'Lokacija mi ni pomembna',
     }),
     expectedProgramme: /^(Kineziologija|Športno treniranje)$/,
     expectedProgrammeLabel: 'program Kineziologija ali Športno treniranje',
@@ -183,6 +191,7 @@ const scenarios: AdvisorScenario[] = [
       learning: 'S poglobljenim razumevanjem teorije',
       environment: 'Šola, klinika ali svetovalno okolje',
       purpose: 'Povezovati ljudi, jezike in ideje',
+      location: 'Lokacija mi ni pomembna',
     }),
     expectedProgramme: /^(Angleški jezik in književnost|Anglistika|Prevajalstvo)$/,
     expectedProgrammeLabel: 'jezikovni ali prevajalski program',
@@ -289,6 +298,7 @@ describe('fuzzy ujemanje predmetov v priporočilih', () => {
       learning: 'Z mešanico teorije in prakse',
       environment: 'Podjetje, ustanova ali projektna ekipa',
       purpose: 'Voditi projekte in ustvarjati priložnosti',
+      location: 'Lokacija mi ni pomembna',
     });
 
     const [recommendation] = recommendStudyProgrammes(
@@ -318,10 +328,12 @@ describe('več odgovorov pri posameznem vprašanju', () => {
       challenge: ['build-app', 'create-work', 'help-person'],
       subjects: ['math-physics', 'math-physics', 'neveljavno'],
       mathematics: ['math-love', 'math-little'],
+      location: ['location-central', 'location-anywhere', 'location-gorenjska'],
     })).toEqual({
       challenge: ['build-app', 'create-work'],
       subjects: ['math-physics'],
       mathematics: ['math-love'],
+      location: ['location-anywhere'],
     });
   });
 
@@ -335,6 +347,23 @@ describe('več odgovorov pri posameznem vprašanju', () => {
       arts: 2,
       creative: 2,
     });
+  });
+
+  it('izključujočo lokacijsko možnost zamenja z območjem in obratno', () => {
+    const locationQuestion = advisorQuestions.find((question) =>
+      question.id === 'location');
+    if (!locationQuestion) throw new Error('Lokacijsko vprašanje manjka.');
+
+    expect(toggleAdvisorAnswerSelection(
+      locationQuestion,
+      ['location-anywhere'],
+      'location-central',
+    )).toEqual(['location-central']);
+    expect(toggleAdvisorAnswerSelection(
+      locationQuestion,
+      ['location-central', 'location-goriska'],
+      'location-anywhere',
+    )).toEqual(['location-anywhere']);
   });
 });
 
@@ -356,6 +385,56 @@ describe('izvajalci priporočenega programa', () => {
 
     expect(recommendation?.result.institution?.name).toBe('Testni zavod');
     expect(recommendation?.result.university?.name).toBe('Testna univerza');
+  });
+});
+
+describe('lokacijske preference', () => {
+  it('možnost brez lokacijske preference ne spremeni rezultatov', () => {
+    const { location: _location, ...answersWithoutLocation } = scenarios[0].answers;
+    const withoutLocation = recommendStudyProgrammes(
+      registry,
+      answersWithoutLocation,
+      performerRegistry,
+    );
+    const locationAnywhere = recommendStudyProgrammes(
+      registry,
+      scenarios[0].answers,
+      performerRegistry,
+    );
+
+    expect(locationAnywhere.map((recommendation) => [
+      recommendation.result.item.id,
+      recommendation.matchPercent,
+    ])).toEqual(withoutLocation.map((recommendation) => [
+      recommendation.result.item.id,
+      recommendation.matchPercent,
+    ]));
+  });
+
+  it('program na izbranem območju uvrsti pred sicer enakovreden program', () => {
+    const syntheticRegistry = registryWithSingleProgramme();
+    syntheticRegistry.institutions[0].study_locations = ['2000 Maribor'];
+    syntheticRegistry.study_programmes[0].name = 'A testni program';
+    syntheticRegistry.institutions.push({
+      ...syntheticRegistry.institutions[0],
+      id: 'central-institution',
+      name: 'Z testni zavod',
+      study_locations: ['1000 Ljubljana'],
+    });
+    syntheticRegistry.study_programmes.push({
+      ...syntheticRegistry.study_programmes[0],
+      id: 'central-programme',
+      name: 'Z testni program',
+      institution_id: 'central-institution',
+    });
+
+    const recommendations = recommendStudyProgrammes(syntheticRegistry, {
+      challenge: ['build-app'],
+      location: ['location-central'],
+    }, undefined, 2);
+
+    expect(recommendations[0]?.result.item.id).toBe('central-programme');
+    expect(recommendations[0]?.reasons[0]).toContain('območij');
   });
 });
 
@@ -394,6 +473,7 @@ function registryWithSingleProgramme(): Registry {
       legal_form: 'Testna oblika',
       website: null,
       parent_university_id: null,
+      study_locations: [],
       valid: true,
       study_programme_count: 1,
       valid_study_programme_count: 1,

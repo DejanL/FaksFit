@@ -6,8 +6,8 @@ Pričakovanja uporabljajo razpon uvrstitve, ker se lahko natančen vrstni red ob
 osvežitvi podatkov NAKVIS nekoliko spremeni. Področne zahteve se preverjajo med
 prvimi 10 priporočili, čeprav sistem vrne do 50 rezultatov.
 
-Vprašanja 1, 2, 3 in 7 omogočajo več odgovorov. Pri vprašanjih 1, 3 in 7 je
-mogoče izbrati največ dve možnosti, pri vprašanju 2 pa največ tri. V spodnjih
+Vprašanja 1, 2, 3, 7 in 9 omogočajo več odgovorov. Pri vprašanjih 1, 3 in 7 je
+mogoče izbrati največ dve možnosti, pri vprašanjih 2 in 9 pa največ tri. V spodnjih
 profilih je več odgovorov istega vprašanja zapisanih v isti oštevilčeni vrstici
 in ločenih z znakom »+«. Algoritem njihove lastnosti povpreči, da vsa vprašanja
 ohranijo primerljivo težo. Pri vsakem vprašanju uporabnik izbiro potrdi z gumbom
@@ -23,6 +23,7 @@ ohranijo primerljivo težo. Pri vsakem vprašanju uporabnik izbiro potrdi z gumb
 6. S praktičnim preizkušanjem
 7. Računalnik, razvojna ekipa ali tehnološko podjetje
 8. Razvijati nove tehnologije in rešitve
+9. Lokacija mi ni pomembna
 
 Pričakovanje: program »Računalništvo in informatika« ali »Računalništvo in
 informacijske tehnologije« je med prvimi petimi, najmanj osem od prvih desetih
@@ -38,6 +39,7 @@ rezultatov pa spada v področje računalništva in tehnike.
 6. S pogovorom in sodelovanjem
 7. Podjetje, ustanova ali projektna ekipa
 8. Bolje razumeti svet, naravo ali družbo
+9. Lokacija mi ni pomembna
 
 Pričakovanje: program »Pravo« je med prvimi desetimi, najmanj osem rezultatov
 pa spada v področje družbe in prava.
@@ -52,6 +54,7 @@ pa spada v področje družbe in prava.
 6. Z mešanico teorije in prakse
 7. Šola, klinika ali svetovalno okolje
 8. Pomagati ljudem pri zdravju ali razvoju
+9. Lokacija mi ni pomembna
 
 Pričakovanje: program »Medicina« ali »Splošna medicina« je med prvimi desetimi,
 najmanj osem rezultatov pa spada v zdravstvo in medicino.
@@ -66,6 +69,7 @@ najmanj osem rezultatov pa spada v zdravstvo in medicino.
 6. Z mešanico teorije in prakse
 7. Studio, oder ali ustvarjalna delavnica + Računalnik, razvojna ekipa ali tehnološko podjetje
 8. Razvijati nove tehnologije in rešitve
+9. Lokacija mi ni pomembna
 
 Pričakovanje: program »Arhitektura« je med prvimi tremi, najmanj pet rezultatov
 pa spada v umetnost in oblikovanje. Ta profil namerno združuje ustvarjalnost,
@@ -81,6 +85,7 @@ tehnično razmišljanje ter praktični rezultat.
 6. Z mešanico teorije in prakse
 7. Podjetje, ustanova ali projektna ekipa
 8. Voditi projekte in ustvarjati priložnosti
+9. Lokacija mi ni pomembna
 
 Pričakovanje: ekonomski ali poslovni program je med prvimi petimi, najmanj osem
 rezultatov pa spada v poslovanje in ekonomijo.
@@ -95,6 +100,7 @@ rezultatov pa spada v poslovanje in ekonomijo.
 6. S praktičnim preizkušanjem
 7. Studio, oder ali ustvarjalna delavnica
 8. Povezovati ljudi, jezike in ideje
+9. Lokacija mi ni pomembna
 
 Pričakovanje: program »Glasbena umetnost« je med prvimi tremi, najmanj osem
 rezultatov pa spada v umetnost in oblikovanje. Profil združuje umetniško
@@ -110,6 +116,7 @@ izražanje, praktično vajo, delo z ljudmi in nastopanje.
 6. S praktičnim preizkušanjem
 7. Šola, klinika ali svetovalno okolje
 8. Pomagati ljudem pri zdravju ali razvoju
+9. Lokacija mi ni pomembna
 
 Pričakovanje: »Kineziologija« ali »Športno treniranje« je med prvimi tremi,
 najmanj pet rezultatov spada v šport in gibanje, med prvimi tremi pa se pojavi
@@ -126,6 +133,7 @@ tudi program Fakultete za šport. Profil poudarja gibanje, praktično delo,
 6. S poglobljenim razumevanjem teorije
 7. Šola, klinika ali svetovalno okolje
 8. Povezovati ljudi, jezike in ideje
+9. Lokacija mi ni pomembna
 
 Pričakovanje: »Angleški jezik in književnost«, »Anglistika« ali »Prevajalstvo«
 je med prvimi petimi, najmanj osem rezultatov pa spada v jezike in humanistiko.
@@ -138,6 +146,11 @@ preveri, da manjša tipkarska napaka v imenu predmeta še vedno sproži fuzzy
 ujemanje. Ločeni testi večizbire preverjajo še pretvorbo starega zapisa,
 odstranjevanje podvojenih in neveljavnih odgovorov, omejitve števila izbir ter
 povprečenje lastnosti odgovorov istega vprašanja.
+
+Lokacijski testi preverjajo izključujoče vedenje možnosti »Lokacija mi ni
+pomembna« ter pribitek, zaradi katerega se sicer enakovreden program na izbranem
+območju uvrsti višje. Lokacija je mehka preferenca in programov iz drugih delov
+Slovenije ne odstrani.
 
 Vsaka kartica priporočila poleg imena programa prikaže izvajalsko fakulteto
 oziroma zavod in, kadar je na voljo, tudi pripadajočo univerzo.
