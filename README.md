@@ -29,6 +29,14 @@ npm test
 Natančni odgovori in pričakovanja za ročni preizkus so opisani v
 [`docs/testni-profili-priporocil.md`](docs/testni-profili-priporocil.md).
 
+Vprašalnik pri interesih, šolskih predmetih, vrsti dela in delovnem okolju
+omogoča več odgovorov. Število izbir je omejeno na dve oziroma pri šolskih
+predmetih na tri. Algoritem možnosti znotraj istega vprašanja povpreči, zato
+več izbir posameznemu vprašanju ne da nesorazmerno velike teže. Odgovori se
+hranijo samo v lokalni shrambi brskalnika; stare enojne odgovore aplikacija ob
+naslednjem obisku samodejno pretvori v novi zapis. Pri vsakem vprašanju je treba
+izbiro potrditi z gumbom »Naprej«, ki je do izbire odgovora onemogočen.
+
 Za lokalni preizkus različice z GitHub Pages podpotjo uporabi:
 
 ```bash

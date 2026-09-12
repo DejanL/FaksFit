@@ -5,6 +5,13 @@ testi so v `src/app/study-advisor.spec.ts` in jih zažene ukaz `npm test`.
 Pričakovanja uporabljajo razpon uvrstitve, ker se lahko natančen vrstni red ob
 osvežitvi podatkov NAKVIS nekoliko spremeni.
 
+Vprašanja 1, 2, 3 in 7 omogočajo več odgovorov. Pri vprašanjih 1, 3 in 7 je
+mogoče izbrati največ dve možnosti, pri vprašanju 2 pa največ tri. V spodnjih
+profilih je več odgovorov istega vprašanja zapisanih v isti oštevilčeni vrstici
+in ločenih z znakom »+«. Algoritem njihove lastnosti povpreči, da vsa vprašanja
+ohranijo primerljivo težo. Pri vsakem vprašanju uporabnik izbiro potrdi z gumbom
+»Naprej«; ta je onemogočen, dokler ni izbran vsaj en odgovor.
+
 ## Računalništvo
 
 1. Razviti aplikacijo ali pametno napravo
@@ -50,13 +57,13 @@ najmanj osem rezultatov pa spada v zdravstvo in medicino.
 
 ## Arhitektura
 
-1. Ustvariti vizualno, glasbeno ali filmsko delo
-2. Matematika, fizika ali računalništvo
-3. Z idejami in raziskovalnimi vprašanji
+1. Ustvariti vizualno, glasbeno ali filmsko delo + Razviti aplikacijo ali pametno napravo
+2. Likovna, glasbena ali druga umetnost + Matematika, fizika ali računalništvo
+3. Z napravami, materiali ali prostori + Z idejami in raziskovalnimi vprašanji
 4. Nekaj, kar dejansko deluje
 5. V redu je, če ima jasen namen
 6. Z mešanico teorije in prakse
-7. Studio, oder ali ustvarjalna delavnica
+7. Studio, oder ali ustvarjalna delavnica + Računalnik, razvojna ekipa ali tehnološko podjetje
 8. Razvijati nove tehnologije in rešitve
 
 Pričakovanje: program »Arhitektura« je med prvimi tremi, najmanj pet rezultatov
@@ -127,4 +134,6 @@ je med prvimi petimi, najmanj osem rezultatov pa spada v jezike in humanistiko.
 Za vsak profil test preveri ciljni program, prevladujoče področje in prisotnost
 konkretnih ujemajočih predmetov. Dodan je tudi ločen sintetični primer, ki
 preveri, da manjša tipkarska napaka v imenu predmeta še vedno sproži fuzzy
-ujemanje.
+ujemanje. Ločeni testi večizbire preverjajo še pretvorbo starega zapisa,
+odstranjevanje podvojenih in neveljavnih odgovorov, omejitve števila izbir ter
+povprečenje lastnosti odgovorov istega vprašanja.

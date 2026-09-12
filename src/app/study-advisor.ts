@@ -8,7 +8,7 @@ import type {
 } from './models';
 import { normalizeSearchText, tokenMatchKind } from './programme-search';
 
-type AdvisorTrait =
+export type AdvisorTrait =
   | 'technology'
   | 'mathematics'
   | 'nature'
@@ -25,7 +25,7 @@ type AdvisorTrait =
   | 'research'
   | 'lowMath';
 
-type TraitScores = Partial<Record<AdvisorTrait, number>>;
+export type TraitScores = Partial<Record<AdvisorTrait, number>>;
 
 export interface AdvisorOption {
   id: string;
@@ -40,7 +40,11 @@ export interface AdvisorQuestion {
   title: string;
   description: string;
   options: AdvisorOption[];
+  allowMultiple?: boolean;
+  maxSelections?: number;
 }
+
+export type AdvisorAnswers = Record<string, string[]>;
 
 export interface AdvisorRecommendation {
   result: SearchResult;
@@ -234,8 +238,10 @@ const preparedCourseAreaRules = courseAreaRules.map((rule) => ({
 export const advisorQuestions: AdvisorQuestion[] = [
   {
     id: 'challenge',
-    title: 'Katera naloga se ti zdi najbolj zanimiva?',
-    description: 'Izberi tisto, ki bi jo najraje preizkusil, tudi če z njo še nimaš izkušenj.',
+    title: 'Katere naloge se ti zdijo najbolj zanimive?',
+    description: 'Izberi največ dve, ki bi ju najraje preizkusil, tudi če z njima še nimaš izkušenj.',
+    allowMultiple: true,
+    maxSelections: 2,
     options: [
       option('build-app', 'Razviti aplikacijo ali pametno napravo', 'Tehnologija, logika in ustvarjanje rešitev.', '⌘', { technology: 4, analytical: 3, practical: 1 }),
       option('help-person', 'Pomagati človeku pri zdravstveni težavi', 'Zdravje, stik z ljudmi in odgovornost.', '♥', { health: 4, social: 3, practical: 2 }),
@@ -248,7 +254,9 @@ export const advisorQuestions: AdvisorQuestion[] = [
   {
     id: 'subjects',
     title: 'Kateri šolski predmeti so ti najbližje?',
-    description: 'Ni treba, da imaš pri njih najboljšo oceno — pomembno je zanimanje.',
+    description: 'Izberi največ tri skupine. Pomembno je zanimanje, ne ocena.',
+    allowMultiple: true,
+    maxSelections: 3,
     options: [
       option('math-physics', 'Matematika, fizika ali računalništvo', 'Uživam v logičnih nalogah in sistemih.', '∑', { mathematics: 4, technology: 3, analytical: 3 }),
       option('bio-chemistry', 'Biologija ali kemija', 'Zanimajo me živi sistemi, snovi in poskusi.', '⚗', { nature: 4, health: 2, research: 2 }),
@@ -261,7 +269,9 @@ export const advisorQuestions: AdvisorQuestion[] = [
   {
     id: 'focus',
     title: 'S čim bi najraje delal večino dneva?',
-    description: 'Pomislil na okolje, v katerem bi se dobro počutil.',
+    description: 'Izberi največ dve vrsti dela, pri katerih bi se dobro počutil.',
+    allowMultiple: true,
+    maxSelections: 2,
     options: [
       option('data', 'S podatki in sistemi', 'Analiziranje, načrtovanje in iskanje vzorcev.', '▦', { analytical: 4, technology: 2, mathematics: 2 }),
       option('people', 'Z ljudmi', 'Pogovor, pomoč, svetovanje ali poučevanje.', '◉', { social: 4, education: 2, health: 1 }),
@@ -307,8 +317,10 @@ export const advisorQuestions: AdvisorQuestion[] = [
   },
   {
     id: 'environment',
-    title: 'Katero delovno okolje si najlažje predstavljaš?',
-    description: 'To ni dokončna odločitev, ampak le namig o tvojem načinu dela.',
+    title: 'Katera delovna okolja si najlažje predstavljaš?',
+    description: 'Izberi največ dve. To ni dokončna odločitev, ampak le namig o tvojem načinu dela.',
+    allowMultiple: true,
+    maxSelections: 2,
     options: [
       option('computer', 'Računalnik, razvojna ekipa ali tehnološko podjetje', 'Digitalni izdelki, sistemi in reševanje problemov.', '⌨', { technology: 5, analytical: 2 }),
       option('lab-field', 'Laboratorij ali delo na terenu', 'Meritve, poskusi, narava in raziskovanje.', '⌁', { nature: 4, research: 3, practical: 2 }),
@@ -334,7 +346,7 @@ export const advisorQuestions: AdvisorQuestion[] = [
 
 export function recommendStudyProgrammes(
   registry: Registry,
-  answers: Record<string, string>,
+  answers: AdvisorAnswers,
   performerRegistry?: ProgrammePerformerSearchRegistry | null,
   limit = DEFAULT_RECOMMENDATION_LIMIT,
 ): AdvisorRecommendation[] {
@@ -439,14 +451,47 @@ function option(
   return { id, label, description, icon, traits };
 }
 
-function buildUserTraits(answers: Record<string, string>): TraitScores {
-  const scores: TraitScores = {};
+export function normalizeAdvisorAnswers(answers: unknown): AdvisorAnswers {
+  if (!answers || typeof answers !== 'object' || Array.isArray(answers)) return {};
+
+  const normalized: AdvisorAnswers = {};
+  const answerRecord = answers as Record<string, unknown>;
 
   for (const question of advisorQuestions) {
-    const selectedOption = question.options.find((candidate) =>
-      candidate.id === answers[question.id]);
-    if (!selectedOption) continue;
-    addTraits(scores, selectedOption.traits);
+    const rawAnswer = answerRecord[question.id];
+    const candidates = Array.isArray(rawAnswer)
+      ? rawAnswer
+      : typeof rawAnswer === 'string'
+        ? [rawAnswer]
+        : [];
+    const validOptionIds = new Set(question.options.map((option) => option.id));
+    const selectionLimit = question.allowMultiple
+      ? Math.max(1, question.maxSelections ?? question.options.length)
+      : 1;
+    const validSelections = [...new Set(
+      candidates.filter((candidate): candidate is string =>
+        typeof candidate === 'string' && validOptionIds.has(candidate)),
+    )].slice(0, selectionLimit);
+
+    if (validSelections.length > 0) normalized[question.id] = validSelections;
+  }
+
+  return normalized;
+}
+
+export function buildUserTraits(answers: AdvisorAnswers): TraitScores {
+  const scores: TraitScores = {};
+  const normalizedAnswers = normalizeAdvisorAnswers(answers);
+
+  for (const question of advisorQuestions) {
+    const selectedOptions = question.options.filter((candidate) =>
+      normalizedAnswers[question.id]?.includes(candidate.id));
+    if (selectedOptions.length === 0) continue;
+
+    const optionWeight = 1 / selectedOptions.length;
+    for (const selectedOption of selectedOptions) {
+      addTraits(scores, selectedOption.traits, optionWeight);
+    }
   }
 
   return scores;
@@ -658,9 +703,13 @@ function traitContribution(left: TraitScores, right: TraitScores): number {
   );
 }
 
-function addTraits(target: TraitScores, additions: TraitScores): void {
+function addTraits(
+  target: TraitScores,
+  additions: TraitScores,
+  weight = 1,
+): void {
   for (const trait of Object.keys(additions) as AdvisorTrait[]) {
-    target[trait] = (target[trait] ?? 0) + (additions[trait] ?? 0);
+    target[trait] = (target[trait] ?? 0) + (additions[trait] ?? 0) * weight;
   }
 }
 

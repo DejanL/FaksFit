@@ -335,6 +335,11 @@ select {
   border-color: #8eb5a7;
   background: #f0f7f3;
 }
+.advisor-options > button:disabled:not(.selected) {
+  opacity: .42;
+  cursor: not-allowed;
+  transform: none;
+}
 .advisor-option-icon {
   display: grid;
   place-items: center;
@@ -348,6 +353,12 @@ select {
 }
 .advisor-options strong { display: block; font-size: .88rem; }
 .advisor-options small { display: block; margin-top: 4px; color: #768680; font-size: .74rem; line-height: 1.35; }
+.advisor-selection-hint {
+  margin: 10px 2px 0;
+  color: #587069;
+  font-size: .76rem;
+  font-weight: 700;
+}
 
 .advisor-navigation {
   display: flex;
@@ -368,6 +379,12 @@ select {
   cursor: pointer;
 }
 .advisor-navigation button:disabled { opacity: .35; cursor: not-allowed; }
+.advisor-navigation button.primary {
+  color: #fff;
+  border-color: #24715d;
+  background: #24715d;
+}
+.advisor-navigation button.primary:hover:not(:disabled) { background: #195849; }
 
 .advisor-results { padding-top: 24px; }
 .advisor-results-heading {

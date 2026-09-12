@@ -3,13 +3,16 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import type { ProgrammePerformerSearchRegistry, Registry } from './models';
 import {
+  type AdvisorAnswers,
   advisorQuestions,
+  buildUserTraits,
+  normalizeAdvisorAnswers,
   recommendStudyProgrammes,
 } from './study-advisor';
 
 interface AdvisorScenario {
   name: string;
-  answers: Record<string, string>;
+  answers: AdvisorAnswers;
   expectedProgramme: RegExp;
   expectedProgrammeLabel: string;
   expectedWithin: number;
@@ -82,13 +85,25 @@ const scenarios: AdvisorScenario[] = [
   {
     name: 'arhitektura',
     answers: answersByLabels({
-      challenge: 'Ustvariti vizualno, glasbeno ali filmsko delo',
-      subjects: 'Matematika, fizika ali računalništvo',
-      focus: 'Z idejami in raziskovalnimi vprašanji',
+      challenge: [
+        'Ustvariti vizualno, glasbeno ali filmsko delo',
+        'Razviti aplikacijo ali pametno napravo',
+      ],
+      subjects: [
+        'Likovna, glasbena ali druga umetnost',
+        'Matematika, fizika ali računalništvo',
+      ],
+      focus: [
+        'Z napravami, materiali ali prostori',
+        'Z idejami in raziskovalnimi vprašanji',
+      ],
       outcome: 'Nekaj, kar dejansko deluje',
       mathematics: 'V redu je, če ima jasen namen',
       learning: 'Z mešanico teorije in prakse',
-      environment: 'Studio, oder ali ustvarjalna delavnica',
+      environment: [
+        'Studio, oder ali ustvarjalna delavnica',
+        'Računalnik, razvojna ekipa ali tehnološko podjetje',
+      ],
       purpose: 'Razvijati nove tehnologije in rešitve',
     }),
     expectedProgramme: /^Arhitektura$/,
@@ -252,14 +267,54 @@ describe('fuzzy ujemanje predmetov v priporočilih', () => {
   });
 });
 
-function answersByLabels(labels: Record<string, string>): Record<string, string> {
+describe('več odgovorov pri posameznem vprašanju', () => {
+  it('sprejme stare enojne odgovore in jih pretvori v sezname', () => {
+    expect(normalizeAdvisorAnswers({
+      challenge: 'build-app',
+      mathematics: 'math-ok',
+    })).toEqual({
+      challenge: ['build-app'],
+      mathematics: ['math-ok'],
+    });
+  });
+
+  it('odstrani podvojene in neveljavne izbire ter upošteva omejitve', () => {
+    expect(normalizeAdvisorAnswers({
+      challenge: ['build-app', 'create-work', 'help-person'],
+      subjects: ['math-physics', 'math-physics', 'neveljavno'],
+      mathematics: ['math-love', 'math-little'],
+    })).toEqual({
+      challenge: ['build-app', 'create-work'],
+      subjects: ['math-physics'],
+      mathematics: ['math-love'],
+    });
+  });
+
+  it('izbrane možnosti istega vprašanja povpreči in jih ne sešteje', () => {
+    expect(buildUserTraits({
+      challenge: ['build-app', 'create-work'],
+    })).toEqual({
+      technology: 2,
+      analytical: 1.5,
+      practical: 1,
+      arts: 2,
+      creative: 2,
+    });
+  });
+});
+
+function answersByLabels(
+  labels: Record<string, string | string[]>,
+): AdvisorAnswers {
   return Object.fromEntries(Object.entries(labels).map(([questionId, label]) => {
     const question = advisorQuestions.find((candidate) => candidate.id === questionId);
-    const option = question?.options.find((candidate) => candidate.label === label);
-    if (!question || !option) {
-      throw new Error(`Neveljaven testni odgovor: ${questionId} = ${label}`);
+    const selectedLabels = Array.isArray(label) ? label : [label];
+    const optionIds = selectedLabels.map((selectedLabel) =>
+      question?.options.find((candidate) => candidate.label === selectedLabel)?.id);
+    if (!question || optionIds.some((optionId) => !optionId)) {
+      throw new Error(`Neveljaven testni odgovor: ${questionId} = ${selectedLabels.join(', ')}`);
     }
-    return [questionId, option.id];
+    return [questionId, optionIds as string[]];
   }));
 }
 

@@ -24,16 +24,20 @@ import {
   searchProgrammeIndex,
 } from './programme-search';
 import {
+  type AdvisorAnswers,
+  type AdvisorQuestion,
   AdvisorRecommendation,
   advisorQuestions,
+  normalizeAdvisorAnswers,
   recommendStudyProgrammes,
 } from './study-advisor';
 
-const ADVISOR_STORAGE_KEY = 'faksfit.study-advisor.v1';
+const ADVISOR_STORAGE_KEY = 'faksfit.study-advisor.v2';
+const LEGACY_ADVISOR_STORAGE_KEY = 'faksfit.study-advisor.v1';
 
 interface StoredAdvisorState {
-  version: 1;
-  answers: Record<string, string>;
+  version: 2;
+  answers: AdvisorAnswers;
   step: number;
   finished: boolean;
 }
@@ -72,7 +76,7 @@ export class App {
   readonly advisorQuestions = advisorQuestions;
   readonly advisorOpen = signal(false);
   readonly advisorStep = signal(0);
-  readonly advisorAnswers = signal<Record<string, string>>({});
+  readonly advisorAnswers = signal<AdvisorAnswers>({});
   readonly advisorFinished = signal(false);
 
   readonly advisorHasProgress = computed(() =>
@@ -282,11 +286,64 @@ export class App {
   }
 
   selectAdvisorAnswer(questionId: string, optionId: string): void {
+    const question = this.advisorQuestions.find((candidate) =>
+      candidate.id === questionId);
+    if (!question?.options.some((option) => option.id === optionId)) return;
+
+    if (question.allowMultiple) {
+      this.advisorAnswers.update((answers) => {
+        const currentSelections = answers[questionId] ?? [];
+        const isSelected = currentSelections.includes(optionId);
+        const maxSelections = question.maxSelections ?? question.options.length;
+        const nextSelections = isSelected
+          ? currentSelections.filter((selection) => selection !== optionId)
+          : currentSelections.length < maxSelections
+            ? [...currentSelections, optionId]
+            : currentSelections;
+
+        if (nextSelections.length > 0) {
+          return { ...answers, [questionId]: nextSelections };
+        }
+
+        const { [questionId]: _removed, ...remainingAnswers } = answers;
+        return remainingAnswers;
+      });
+      this.persistAdvisorState();
+      return;
+    }
+
     this.advisorAnswers.update((answers) => ({
       ...answers,
-      [questionId]: optionId,
+      [questionId]: [optionId],
     }));
+    this.persistAdvisorState();
+  }
 
+  continueAdvisor(): void {
+    const question = this.currentAdvisorQuestion();
+    if (!question || !this.advisorAnswers()[question.id]?.length) return;
+
+    this.advanceAdvisor();
+  }
+
+  isAdvisorOptionSelected(questionId: string, optionId: string): boolean {
+    return this.advisorAnswers()[questionId]?.includes(optionId) ?? false;
+  }
+
+  isAdvisorOptionDisabled(question: AdvisorQuestion, optionId: string): boolean {
+    if (!question.allowMultiple || this.isAdvisorOptionSelected(question.id, optionId)) {
+      return false;
+    }
+
+    const maxSelections = question.maxSelections ?? question.options.length;
+    return (this.advisorAnswers()[question.id]?.length ?? 0) >= maxSelections;
+  }
+
+  advisorSelectedCount(questionId: string): number {
+    return this.advisorAnswers()[questionId]?.length ?? 0;
+  }
+
+  private advanceAdvisor(): void {
     if (this.advisorStep() === this.advisorQuestions.length - 1) {
       this.advisorFinished.set(true);
       this.persistAdvisorState();
@@ -453,22 +510,25 @@ export class App {
     if (!isPlatformBrowser(this.platformId)) return;
 
     try {
-      const storedValue = localStorage.getItem(ADVISOR_STORAGE_KEY);
+      const storedValue = localStorage.getItem(ADVISOR_STORAGE_KEY)
+        ?? localStorage.getItem(LEGACY_ADVISOR_STORAGE_KEY);
       if (!storedValue) return;
 
-      const storedState = JSON.parse(storedValue) as Partial<StoredAdvisorState>;
-      if (storedState.version !== 1 || !storedState.answers) {
+      const storedState = JSON.parse(storedValue) as {
+        version?: unknown;
+        answers?: unknown;
+        step?: unknown;
+        finished?: unknown;
+      };
+      if (
+        (storedState.version !== 1 && storedState.version !== 2)
+        || !storedState.answers
+      ) {
         this.clearStoredAdvisorState();
         return;
       }
 
-      const validAnswers: Record<string, string> = {};
-      for (const question of this.advisorQuestions) {
-        const answer = storedState.answers[question.id];
-        if (question.options.some((option) => option.id === answer)) {
-          validAnswers[question.id] = answer;
-        }
-      }
+      const validAnswers = normalizeAdvisorAnswers(storedState.answers);
 
       if (Object.keys(validAnswers).length === 0) {
         this.clearStoredAdvisorState();
@@ -476,10 +536,11 @@ export class App {
       }
 
       const allQuestionsAnswered = this.advisorQuestions.every((question) =>
-        Boolean(validAnswers[question.id]));
-      const restoredStep = Number.isInteger(storedState.step)
+        Boolean(validAnswers[question.id]?.length));
+      const restoredStep = typeof storedState.step === 'number'
+        && Number.isInteger(storedState.step)
         ? Math.min(
-          Math.max(storedState.step ?? 0, 0),
+          Math.max(storedState.step, 0),
           this.advisorQuestions.length - 1,
         )
         : 0;
@@ -489,6 +550,7 @@ export class App {
         ? this.advisorQuestions.length - 1
         : restoredStep);
       this.advisorFinished.set(storedState.finished === true && allQuestionsAnswered);
+      if (storedState.version === 1) this.persistAdvisorState();
     } catch {
       this.clearStoredAdvisorState();
     }
@@ -498,7 +560,7 @@ export class App {
     if (!isPlatformBrowser(this.platformId)) return;
 
     const state: StoredAdvisorState = {
-      version: 1,
+      version: 2,
       answers: this.advisorAnswers(),
       step: this.advisorStep(),
       finished: this.advisorFinished(),
@@ -506,6 +568,7 @@ export class App {
 
     try {
       localStorage.setItem(ADVISOR_STORAGE_KEY, JSON.stringify(state));
+      localStorage.removeItem(LEGACY_ADVISOR_STORAGE_KEY);
     } catch {
       // Aplikacija ostane uporabna tudi, ko brskalnik blokira lokalno shrambo.
     }
@@ -516,6 +579,7 @@ export class App {
 
     try {
       localStorage.removeItem(ADVISOR_STORAGE_KEY);
+      localStorage.removeItem(LEGACY_ADVISOR_STORAGE_KEY);
     } catch {
       // Brisanje ni nujno na voljo v zasebnem načinu ali omejenem okolju.
     }

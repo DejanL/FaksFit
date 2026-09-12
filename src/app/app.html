@@ -148,11 +148,13 @@
               <h3>{{ question.title }}</h3>
               <p>{{ question.description }}</p>
 
-              <div class="advisor-options">
+              <div class="advisor-options" role="group" [attr.aria-label]="question.title">
                 @for (option of question.options; track option.id) {
                   <button
                     type="button"
-                    [class.selected]="advisorAnswers()[question.id] === option.id"
+                    [class.selected]="isAdvisorOptionSelected(question.id, option.id)"
+                    [disabled]="isAdvisorOptionDisabled(question, option.id)"
+                    [attr.aria-pressed]="isAdvisorOptionSelected(question.id, option.id)"
                     (click)="selectAdvisorAnswer(question.id, option.id)"
                   >
                     <span class="advisor-option-icon" aria-hidden="true">{{ option.icon }}</span>
@@ -163,11 +165,26 @@
                   </button>
                 }
               </div>
+
+              @if (question.allowMultiple) {
+                <p class="advisor-selection-hint" aria-live="polite">
+                  Izbranih {{ advisorSelectedCount(question.id) }} od največ
+                  {{ question.maxSelections ?? question.options.length }}.
+                </p>
+              }
             </div>
 
             <div class="advisor-navigation">
               <button type="button" [disabled]="advisorStep() === 0" (click)="previousAdvisorQuestion()">← Nazaj</button>
               <span>Napredek se samodejno shrani v tem brskalniku</span>
+              <button
+                class="primary"
+                type="button"
+                [disabled]="advisorSelectedCount(question.id) === 0"
+                (click)="continueAdvisor()"
+              >
+                Naprej →
+              </button>
             </div>
           }
         } @else {
